@@ -1,0 +1,191 @@
+\documentclass{beamer}
+\usetheme{Madrid}
+
+\usepackage{amsmath, amssymb}
+
+\newcommand{\Norm}{\mathcal{N}}
+\newcommand{\d}{\,\mathrm{d}}
+\newcommand{\KL}{\mathrm{KL}}
+
+\title{The Schrödinger Bridge Problem}
+\subtitle{From Brownian Bridges to Diffusion Models}
+\author{Zachary Lau}
+\institute{STAT 547E}
+\date{\today}
+
+\begin{document}
+
+% -------------------------------------------------------
+\begin{frame}
+  \titlepage{}
+\end{frame}
+
+\begin{frame}{Outline}
+  \tableofcontents
+\end{frame}
+
+% -------------------------------------------------------
+\section{Brownian Bridge}
+% -------------------------------------------------------
+
+\begin{frame}{Single Particle Brownian Bridge}
+  \begin{itemize}
+    \item Particle starts at $X_0 = 0$, evolves as standard Brownian motion
+    \item Conditioning on $X_0 = 0$ and $X_1 = 0$:
+    \[
+      X_t \mid X_0 = 0,\, X_1 = 0 \;\sim\; \Norm\!\bigl(0,\, t(1-t)\bigr)
+    \]
+    \item Generalizes: for endpoints $a, b$
+    \[
+      X_t \mid X_0 = a,\, X_1 = b \;\sim\; \Norm\!\bigl(ta + (1-t)b,\; t(1-t)\bigr)
+    \]
+    \item Density factors as a \emph{product} of forward and time-reversed Brownian motion terms~\cite{Schrodinger1932}
+  \end{itemize}
+\end{frame}
+
+% -------------------------------------------------------
+\section{Multiple Particles \& Unknown Pairings}
+% -------------------------------------------------------
+
+\begin{frame}{Multiple Independent Particles}
+  \begin{itemize}
+    \item $N$ particles, each on an independent Brownian bridge from $a_i$ to $b_i$
+    \item Marginal at time $t$: mixture of Gaussians
+    \[
+      X^i_t \mid X^i_0 = a_i,\, X^i_1 = b_i \;\sim\; \Norm\!\bigl(ta_i + (1-t)b_i,\; t(1-t)\bigr)
+    \]
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Unknown Pairings — A Bayesian Perspective}
+  \begin{itemize}
+    \item Observe start and end locations, but \emph{not} which particle is which
+    \item Uniform prior on pairings; Brownian likelihood $\mathcal{L} \propto \exp\!\bigl(-\tfrac{1}{2}{(x_1 - x_0)}^2\bigr)$
+    \item Posterior over pairing $(\mathbf{i}, \mathbf{j})$:
+    \[
+      \mathbf{p}(\mathbf{i},\mathbf{j}) \propto \prod_{(i,j)} \exp\!\Bigl(-\tfrac{1}{2}{(a_i - b_j)}^2\Bigr)
+    \]
+    \item Log-posterior $= -N H(p, q)$, a \emph{power posterior} — concentrates on the cross-entropy minimizer as $N \to \infty$
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Many Particles, Finite Locations}
+  \begin{itemize}
+    \item $M$ particles at each of $N$ locations; track transport matrix $P_{ij}$
+    \item Combinatorial prior (microstate vs.\ macrostate) + Brownian likelihood
+    \item Stirling's approximation + normalization yields, for large $M$:
+    \[
+      \log p(P) \approx NM\cdot \KL(p \| q) + \text{const}
+    \]
+    \item \textbf{Key insight:} as $M \to \infty$, posterior collapses to the minimizer of $\KL(p \| q)$ subject to marginal constraints
+    \item This is the \emph{principle of maximum entropy} — and the Schrödinger Bridge
+  \end{itemize}
+\end{frame}
+
+% -------------------------------------------------------
+\section{The Schrödinger Bridge Problem}
+% -------------------------------------------------------
+
+\begin{frame}{Problem Statement}
+  \begin{block}{Schrödinger Bridge (static)}
+    Find joint distribution $P$ on $\mathcal{X} \times \mathcal{X}$ that:
+    \begin{enumerate}
+      \item Satisfies marginal constraints: $X_0 \sim \mu$, $X_1 \sim \nu$
+      \item Minimizes $\KL(P \| Q)$ where $Q(x_0, x_1) \propto \exp\!\bigl(-\tfrac{1}{2}{(x_1 - x_0)}^2\bigr)$
+    \end{enumerate}
+  \end{block}
+  \vspace{0.5em}
+  \begin{itemize}
+    \item Reference $Q$ encodes Brownian motion dynamics
+    \item Once the transport plan is found, the path distribution is a \emph{mixture of Brownian bridges}~\cite{léonard2013surveyschrodingerproblemconnections}
+  \end{itemize}
+\end{frame}
+
+% -------------------------------------------------------
+\section{Connection to Diffusion Models}
+% -------------------------------------------------------
+
+\begin{frame}{Traditional Diffusion Models}
+  \begin{enumerate}
+    \item Fix a forward diffusion process with known stationary distribution (the prior)
+    \item Run forward until approximately stationary
+    \item Learn the backward process by score matching
+  \end{enumerate}
+  \vspace{0.5em}
+  \textbf{Discomfort:} relies on running long enough — no finite-time guarantee
+\end{frame}
+
+\begin{frame}{Schrödinger Bridge to the Rescue}
+  \begin{itemize}
+    \item Instead: find the diffusion process \emph{closest to the reference} that satisfies marginal constraints $\mu_0$ and $\mu_T$
+    \item No need to specify a drift and wait for stationarity — the drift is \emph{determined} by the bridge problem
+    \item Prior is reached \textbf{in finite time} by construction~\cite{debortoli2023diffusionschrodingerbridgeapplications}
+  \end{itemize}
+\end{frame}
+
+% -------------------------------------------------------
+\section{Solving the Schrödinger Bridge}
+% -------------------------------------------------------
+
+\begin{frame}{Sinkhorn Algorithm (Discrete)}
+  \begin{enumerate}
+    \item Initialize $P$ at the reference distribution $Q$
+    \item Repeat until convergence:
+    \begin{enumerate}
+      \item Rescale \textbf{rows} to satisfy the $\mu$ marginal
+      \item Rescale \textbf{columns} to satisfy the $\nu$ marginal
+    \end{enumerate}
+  \end{enumerate}
+  \vspace{0.5em}
+  \begin{itemize}
+    \item Converges to the minimum-KL solution~\cite{Sinkhorn1964}
+    \item Intuition: alternately project onto the two marginal constraints
+    \item Equivalent to alternating between forward and backward conditional distributions
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Diffusion Schrödinger Bridge Algorithm}
+  Sinkhorn is infeasible for continuous, high-dimensional distributions.
+  \textbf{Solution}: model conditional distributions as \emph{diffusion dynamics}~\cite{debortoli2023diffusionschrodingerbridgeapplications}
+  \vspace{0.5em}
+  \begin{enumerate}
+    \item Initialize with data distribution; use reference for forward dynamics
+    \item \textbf{Backward step}: sample data, propagate forward, learn backward dynamics
+    \item \textbf{Forward step}: sample prior, propagate backward, learn forward dynamics
+    \item Repeat — a continuous-space analog of Sinkhorn
+  \end{enumerate}
+\end{frame}
+
+% -------------------------------------------------------
+\section{Experiments}
+% -------------------------------------------------------
+
+\begin{frame}{Experiments}
+  \begin{itemize}
+    \item Comparison with annealing
+    \item Comparison with annealed Langevin diffusion
+    \item Statistical mechanics simulation
+  \end{itemize}
+\end{frame}
+
+% -------------------------------------------------------
+\section{Conclusion}
+% -------------------------------------------------------
+
+\begin{frame}{Summary}
+  \begin{itemize}
+    \item Schrödinger Bridge arises naturally from Bayesian inference over particle pairings
+    \item Minimum-KL interpolation between distributions — equivalent to maximum entropy
+    \item Tight connection to optimal transport and the Sinkhorn algorithm
+    \item Enables diffusion models with finite-time marginal guarantees
+    \item DSB algorithm: iterative score matching as continuous-space Sinkhorn
+  \end{itemize}
+\end{frame}
+
+% -------------------------------------------------------
+\begin{frame}[allowframebreaks]{References}
+  \bibliographystyle{alpha}
+  \bibliography{./refs}
+\end{frame}
+
+\end{document}
