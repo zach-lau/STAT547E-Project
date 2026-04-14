@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Particle Coupling Simulator</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #111122;
+  color: #e0e0e0;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 13px;
+  padding: 12px;
+  min-height: 100vh;
+}
+
+h1 {
+  font-size: 17px;
+  font-weight: 500;
+  color: #4fc3f7;
+  margin-bottom: 10px;
+  letter-spacing: 0.02em;
+}
+
+#controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 20px;
+  align-items: flex-end;
+  background: #1a1a2e;
+  padding: 10px 14px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+
+.ctrl {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.ctrl label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #888;
+}
+
+.ctrl-val {
+  font-size: 11px;
+  color: #4fc3f7;
+  font-weight: 600;
+  min-width: 120px;
+}
+
+input[type=range] {
+  width: 110px;
+  accent-color: #4fc3f7;
+  cursor: pointer;
+}
+
+select {
+  background: #111122;
+  color: #e0e0e0;
+  border: 1px solid #334;
+  border-radius: 4px;
+  padding: 4px 6px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.btn-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+button {
+  background: #1e3050;
+  color: #4fc3f7;
+  border: 1px solid #4fc3f7;
+  border-radius: 5px;
+  padding: 5px 13px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background 0.12s;
+  white-space: nowrap;
+}
+button:hover { background: #2a4a70; }
+button.active { background: #0d47a1; border-color: #64b5f6; }
+
+#stats {
+  font-size: 11px;
+  color: #9e9e9e;
+  margin-left: 4px;
+  line-height: 1.6;
+}
+
+#viz-container {
+  display: grid;
+  grid-template-columns: 1fr 260px;
+  gap: 12px;
+  align-items: start;
+}
+
+canvas { display: block; border-radius: 6px; }
+
+/* ── Info modal ─────────────────────────────────────────────────────────── */
+#info-btn {
+  position: fixed;
+  top: 14px;
+  right: 16px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #1e3050;
+  border: 1.5px solid #4fc3f7;
+  color: #4fc3f7;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  line-height: 1;
+  z-index: 1000;
+  transition: background 0.12s;
+}
+#info-btn:hover { background: #2a4a70; }
+
+#info-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.72);
+  z-index: 2000;
+  align-items: center;
+  justify-content: center;
+}
+#info-overlay.open { display: flex; }
+
+#info-modal {
+  background: #1a1a2e;
+  border: 1px solid #334;
+  border-radius: 10px;
+  max-width: 680px;
+  width: 92%;
+  max-height: 82vh;
+  overflow-y: auto;
+  padding: 28px 32px;
+  position: relative;
+  font-size: 13px;
+  line-height: 1.7;
+  color: #ccc;
+}
+#info-modal h2 {
+  color: #4fc3f7;
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  letter-spacing: 0.02em;
+}
+#info-modal h3 {
+  color: #90caf9;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 18px 0 6px;
+}
+#info-modal p { margin-bottom: 10px; }
+#info-modal ul { margin: 6px 0 10px 18px; }
+#info-modal li { margin-bottom: 5px; }
+#info-modal .math {
+  font-family: "Georgia", serif;
+  font-style: italic;
+  color: #e0e0e0;
+}
+#info-modal code {
+  background: #111133;
+  border: 1px solid #334;
+  border-radius: 3px;
+  padding: 0px 5px;
+  font-family: monospace;
+  font-size: 12px;
+  color: #ff7043;
+}
+#info-close {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+#info-close:hover { color: #ccc; background: none; }
+
+#bridge-panel {
+  background: #1a1a2e;
+  border-radius: 8px;
+  padding: 8px;
+}
+
+#bridge-panel h3 {
+  font-size: 11px;
+  font-weight: 500;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 6px;
+}
+</style>
+</head>
+<body>
+
+<h1>Particle Coupling Simulator — Bit-Flip MH for Regularised OT</h1>
+<button id="info-btn" title="About this simulation">?</button>
+
+<div id="controls">
+  <div class="ctrl">
+    <label>N &nbsp;(2<sup>N</sup> particles)</label>
+    <input type="range" id="sl-N" min="3" max="12" step="1" value="5">
+    <span class="ctrl-val" id="lbl-N">N=5, 32 particles</span>
+  </div>
+
+  <div class="ctrl">
+    <label>ε &nbsp;(regularisation)</label>
+    <input type="range" id="sl-eps" min="-4" max="0.5" step="0.1" value="-1.3">
+    <span class="ctrl-val" id="lbl-eps">ε = 0.050</span>
+  </div>
+
+  <div class="ctrl">
+    <label>Row marginal r</label>
+    <select id="sel-r">
+      <option value="bimodal" selected>Bimodal Gaussian</option>
+      <option value="gauss_left">Gaussian (left)</option>
+      <option value="gauss_center">Gaussian (center)</option>
+      <option value="gauss_right">Gaussian (right)</option>
+      <option value="bimodal_sym">Symmetric bimodal</option>
+      <option value="skewed">Right-skewed</option>
+      <option value="uniform">Uniform</option>
+    </select>
+  </div>
+
+  <div class="ctrl">
+    <label>Col marginal c</label>
+    <select id="sel-c">
+      <option value="skewed" selected>Right-skewed</option>
+      <option value="bimodal">Bimodal Gaussian</option>
+      <option value="gauss_left">Gaussian (left)</option>
+      <option value="gauss_center">Gaussian (center)</option>
+      <option value="gauss_right">Gaussian (right)</option>
+      <option value="bimodal_sym">Symmetric bimodal</option>
+      <option value="uniform">Uniform</option>
+    </select>
+  </div>
+
+  <div class="ctrl">
+    <label>Speed (steps / frame)</label>
+    <input type="range" id="sl-speed" min="1" max="100" step="1" value="4">
+    <span class="ctrl-val" id="lbl-speed">4 steps/frame</span>
+  </div>
+
+
+  <div class="ctrl">
+    <label>&nbsp;</label>
+    <div class="btn-row">
+      <button id="btn-play">&#9654; Play</button>
+      <button id="btn-step">Step</button>
+      <button id="btn-reset">Reset</button>
+      <button id="btn-view">Particles</button>
+    </div>
+    <span id="stats">Iter 0 &nbsp;|&nbsp; bit 0/5</span>
+  </div>
+</div>
+
+<div id="viz-container">
+  <canvas id="main-canvas"></canvas>
+  <div id="bridge-panel">
+    <h3>Brownian Bridge Densities</h3>
+    <canvas id="bridge-canvas"></canvas>
+  </div>
+</div>
+
+<!-- ── Info modal ──────────────────────────────────────────────────────────── -->
+<div id="info-overlay">
+  <div id="info-modal">
+    <button id="info-close">&times;</button>
+    <h2>Particle Coupling Simulator</h2>
+
+    <h3>What is being simulated?</h3>
+    <p>
+      We maintain <span class="math">M = 2<sup>N</sup></span> particles, each with a fixed
+      <span class="math">x</span>-coordinate (drawn from marginal <span class="math">r</span>)
+      and a mutable <span class="math">y</span>-coordinate (drawn from marginal <span class="math">c</span>).
+      The goal is to sample a <em>coupling</em> — a joint distribution
+      <span class="math">P(x, y)</span> with prescribed marginals
+      <span class="math">r</span> and <span class="math">c</span> — that minimises a transport cost
+      regularised by entropy.
+    </p>
+
+    <h3>Regularised Optimal Transport</h3>
+    <p>
+      Classical optimal transport finds the coupling that minimises
+      <span class="math">∫ c(x,y) dP(x,y)</span> subject to the marginal constraints.
+      The <strong>entropy-regularised</strong> version adds a penalty
+      <span class="math">−ε · H(P)</span>, where <span class="math">H</span> is the entropy of
+      <span class="math">P</span> and <span class="math">ε &gt; 0</span> is the regularisation strength.
+      The unique solution takes the <em>Gibbs form</em>:
+    </p>
+    <p style="text-align:center; color:#e0e0e0; font-family:Georgia,serif; font-style:italic;">
+      P*(x, y) = u(x) · e<sup>−c(x,y)/ε</sup> · v(y)
+    </p>
+    <p>
+      for scaling functions <span class="math">u, v</span> determined by the marginal constraints.
+      The <strong>Sinkhorn algorithm</strong> iteratively updates these scalings until convergence.
+      As <span class="math">ε → 0</span>, the solution concentrates on the optimal transport plan;
+      as <span class="math">ε → ∞</span>, it approaches the independent coupling <span class="math">r ⊗ c</span>.
+    </p>
+
+    <h3>Schrödinger Bridge Problem</h3>
+    <p>
+      The entropy-regularised OT problem is equivalent to the <strong>Schrödinger bridge problem</strong>,
+      originally posed by Erwin Schrödinger in 1931–32. Given two marginals and a reference process
+      (here: Brownian motion), find the law of the stochastic process closest to the reference
+      (in KL divergence) that has the prescribed marginal distributions at times <span class="math">t=0</span> and
+      <span class="math">t=1</span>.
+    </p>
+    <p>
+      The optimal process is a <strong>Brownian bridge mixture</strong>: for each particle pair
+      <span class="math">(xᵢ, yᵢ)</span>, the path is a Brownian bridge from <span class="math">x_i</span>
+      at <span class="math">t=0</span> to <span class="math">y_i</span> at <span class="math">t=1</span>,
+      with variance <span class="math">ε · t(1−t)</span> at intermediate time <span class="math">t</span>.
+      The <em>Brownian Bridge Densities</em> panel on the right shows the marginal density at
+      <span class="math">t = 0.25, 0.5, 0.75</span>, interpolating between <span class="math">r</span> and <span class="math">c</span>.
+    </p>
+
+    <h3>The Bit-Flip MH Kernel</h3>
+    <p>
+      We use a Markov chain that preserves marginal invariance exactly.
+      At each step, bit index <span class="math">k</span> is selected and all pairs
+      <span class="math">(i, i ⊕ 2ᵏ)</span> are proposed for a
+      <span class="math">y</span>-swap. The Metropolis–Hastings acceptance probability is:
+    </p>
+    <p style="text-align:center; color:#e0e0e0; font-family:Georgia,serif; font-style:italic;">
+      α = min(1, exp(−ΔE/ε))
+    </p>
+    <p>
+      where <span class="math">ΔE = (xᵢ−yⱼ)² + (xⱼ−yᵢ)² − (xᵢ−yᵢ)² − (xⱼ−yⱼ)²</span>
+      is the change in squared-distance cost. Since swaps only exchange
+      <span class="math">y</span>-values between particles, the empirical marginals of both
+      <span class="math">x</span> and <span class="math">y</span> are <em>exactly preserved</em> at every step.
+    </p>
+    <p>
+      A random pairing step is interlaced once per full cycle through all <span class="math">N</span> bit indices
+      to ensure ergodicity (preventing the chain from cycling without mixing).
+    </p>
+
+    <h3>Controls</h3>
+    <ul>
+      <li><strong>N</strong> — log<sub>2</sub> of the number of particles; more particles → finer resolution.</li>
+      <li><strong>ε</strong> — regularisation; small ε concentrates mass near the OT plan, large ε spreads it.</li>
+      <li><strong>Row / Col marginals</strong> — choose target distributions <span class="math">r</span> (y-axis) and <span class="math">c</span> (x-axis).</li>
+      <li><strong>KDE / Particles</strong> — toggle between a density heatmap and individual particle scatter.</li>
+      <li><strong>Speed</strong> — number of bit-flip steps executed per animation frame.</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ── Inferno colormap ─────────────────────────────────────────────────────────
+const INFERNO = (() => {
+  const kp = [
+    [0.00,   0,   0,   4],
+    [0.13,  40,  11,  84],
+    [0.26,  86,  15, 110],
+    [0.39, 139,  34,  87],
+    [0.52, 188,  55,  41],
+    [0.65, 229,  97,   7],
+    [0.78, 246, 152,  26],
+    [0.91, 252, 209, 103],
+    [1.00, 252, 255, 164],
+  ];
+  return t => {
+    t = Math.max(0, Math.min(1, t));
+    let i = 0;
+    while (i < kp.length - 2 && kp[i+1][0] <= t) i++;
+    const [t0,r0,g0,b0] = kp[i], [t1,r1,g1,b1] = kp[i+1];
+    const s = (t - t0) / (t1 - t0);
+    return [r0 + s*(r1-r0) | 0, g0 + s*(g1-g0) | 0, b0 + s*(b1-b0) | 0];
+  };
+})();
+
+// ── Marginal functions ───────────────────────────────────────────────────────
+const MARG_FN = {
+  bimodal:    x => 0.55*Math.exp(-0.5*((x-0.25)/0.08)**2) + 0.45*Math.exp(-0.5*((x-0.72)/0.12)**2),
+  skewed:     x => Math.exp(-4.5*x) + 0.15*Math.exp(-0.5*((x-0.85)/0.07)**2),
+  gauss_left: x => Math.exp(-0.5*((x-0.20)/0.10)**2),
+  gauss_center:x=> Math.exp(-0.5*((x-0.50)/0.12)**2),
+  gauss_right:x => Math.exp(-0.5*((x-0.80)/0.10)**2),
+  bimodal_sym:x => 0.5*Math.exp(-0.5*((x-0.25)/0.10)**2) + 0.5*Math.exp(-0.5*((x-0.75)/0.10)**2),
+  uniform:    _  => 1.0,
+};
+
+const MARG_NAMES = {
+  bimodal:'Bimodal', skewed:'Skewed', gauss_left:'Gauss(L)', gauss_center:'Gauss(C)',
+  gauss_right:'Gauss(R)', bimodal_sym:'Bi-sym', uniform:'Uniform'
+};
+
+function discreteProb(type, pts) {
+  const f = MARG_FN[type], n = pts.length;
+  const p = new Float64Array(n);
+  let s = 0;
+  for (let i = 0; i < n; i++) { p[i] = f(pts[i]); s += p[i]; }
+  for (let i = 0; i < n; i++) p[i] /= s;
+  return p;
+}
+
+// Balanced allocation: assigns exactly floor/ceil(M * prob[i]) particles to each bin
+// so the empirical marginal equals the target PMF up to integer rounding.
+function exactSample(prob, gridPts, M) {
+  const G = prob.length;
+  const exact = new Float64Array(G);
+  for (let i = 0; i < G; i++) exact[i] = M * prob[i];
+  const counts = new Int32Array(G);
+  let total = 0;
+  for (let i = 0; i < G; i++) { counts[i] = Math.floor(exact[i]); total += counts[i]; }
+  // Give remaining slots to bins with largest fractional parts
+  const order = Array.from({length: G}, (_, i) => i)
+    .sort((a, b) => (exact[b] - counts[b]) - (exact[a] - counts[a]));
+  for (let k = 0; k < M - total; k++) counts[order[k]]++;
+  const vals = new Float64Array(M);
+  let idx = 0;
+  for (let i = 0; i < G; i++) for (let k = 0; k < counts[i]; k++) vals[idx++] = gridPts[i];
+  return vals;
+}
+
+function shuffle(a) {
+  for (let i = a.length-1; i > 0; i--) {
+    const j = Math.random()*i+1 | 0;
+    const t = a[i]; a[i] = a[j]; a[j] = t;
+  }
+}
+
+// ── Simulation state ─────────────────────────────────────────────────────────
+const sim = {
+  N:5, eps:0.05, rType:'bimodal', cType:'skewed',
+  M:32,
+  xV:null, yV:null,      // Float64Array[M]: particle positions
+  rProb:null, cProb:null,
+  gridPts:null,
+  iter:0, bit:0,
+  running:false, speed:4,
+  viewMode: 'kde',       // 'kde' | 'particles'
+};
+
+function initSim() {
+  const {N, rType, cType} = sim;
+  const M = 1 << N;
+  sim.M = M; sim.iter = 0; sim.bit = 0;
+
+  const pts = new Float64Array(M);
+  for (let i=0;i<M;i++) pts[i] = (2*i+1)/(2*M);
+  sim.gridPts = pts;
+
+  sim.rProb = discreteProb(rType, pts);
+  sim.cProb = discreteProb(cType, pts);
+
+  // x: exactly M particles allocated to bins ∝ r (fixed throughout)
+  sim.xV = exactSample(sim.rProb, pts, M);
+  // y: exactly M particles allocated to bins ∝ c, randomly permuted
+  sim.yV = exactSample(sim.cProb, pts, M);
+  shuffle(sim.yV);
+}
+
+// MH swap attempt between particles i and j
+function trySwap(i, j) {
+  const {eps, xV, yV} = sim;
+  const xi=xV[i], yi=yV[i], xj=xV[j], yj=yV[j];
+  const dE = ((xi-yj)**2 + (xj-yi)**2 - (xi-yi)**2 - (xj-yj)**2) / eps;
+  if (dE <= 0 || Math.random() < Math.exp(-dE)) { yV[i]=yj; yV[j]=yi; }
+}
+
+// Bit-flip kernel: sweep all pairs differing in bit `bit`
+function doBitStep() {
+  const {M, N, bit} = sim;
+  const mask = 1 << bit;
+  for (let i = 0; i < M; i++) {
+    if ((i >> bit) & 1) continue;
+    trySwap(i, i ^ mask);
+  }
+  sim.bit = (bit + 1) % N;
+  if (sim.bit === 0) {
+    // End of a full N-bit cycle: run one random-pairing kernel pass
+    doRandomStep();
+    sim.iter++;
+  }
+}
+
+// Random pairing kernel: shuffle indices, pair consecutive, propose swaps
+function doRandomStep() {
+  const {M, xV, yV} = sim;
+  // Build a random permutation
+  const perm = new Int32Array(M);
+  for (let i = 0; i < M; i++) perm[i] = i;
+  for (let i = M-1; i > 0; i--) {
+    const j = Math.random()*(i+1)|0;
+    const t = perm[i]; perm[i] = perm[j]; perm[j] = t;
+  }
+  // Pair up consecutive elements and try each swap
+  for (let k = 0; k < M-1; k += 2) trySwap(perm[k], perm[k+1]);
+}
+
+// ── Density helpers ───────────────────────────────────────────────────────────
+// 2-D KDE on G×G grid.
+// Convention (matching sinkhorn.py): x-axis = yV (col marginal c),
+//                                    y-axis = xV (row marginal r).
+function kde2D(xV, yV, M, G) {
+  const h = new Float64Array(G*G);
+  const bw = Math.max(0.3 / Math.sqrt(M), 0.5 / G);
+  const inv2 = 0.5 / (bw * bw);
+  const norm = 1 / (2 * Math.PI * bw * bw * M);
+  const rad  = Math.min(Math.ceil(3.5 * bw * G) + 1, G);
+  for (let p = 0; p < M; p++) {
+    const cx = yV[p] * G - 0.5;   // c (yV) on x-axis
+    const cy = xV[p] * G - 0.5;   // r (xV) on y-axis
+    const lx = Math.max(0, cx - rad | 0), hx = Math.min(G-1, cx + rad | 0);
+    const ly = Math.max(0, cy - rad | 0), hy = Math.min(G-1, cy + rad | 0);
+    for (let gy = ly; gy <= hy; gy++) {
+      const dy = (gy + 0.5) / G - xV[p];
+      for (let gx = lx; gx <= hx; gx++) {
+        const dx = (gx + 0.5) / G - yV[p];
+        h[gy * G + gx] += norm * Math.exp(-(dx*dx + dy*dy) * inv2);
+      }
+    }
+  }
+  return h;
+}
+
+// 1-D KDE
+function kde1D(vals, M, D, bw) {
+  const h = new Float64Array(D);
+  const inv2 = 0.5/(bw*bw);
+  const norm = 1/(Math.sqrt(2*Math.PI)*bw*M);
+  const rad = Math.ceil(3.5*bw*D)+1;
+  for (let p=0;p<M;p++) {
+    const cx = vals[p]*D - 0.5;
+    const lo = Math.max(0, cx-rad|0), hi = Math.min(D-1, cx+rad|0);
+    for (let i=lo;i<=hi;i++) {
+      const dx=(i+0.5)/D - vals[p];
+      h[i] += norm*Math.exp(-dx*dx*inv2);
+    }
+  }
+  return h;
+}
+
+// Brownian bridge mixture density at time t
+function bridgeDensity(xV, yV, M, t, D, eps) {
+  const sigSq = Math.max(eps*t*(1-t), 1e-5);
+  const sig = Math.sqrt(sigSq);
+  return kde1D(
+    (() => { const mu = new Float64Array(M); for(let i=0;i<M;i++) mu[i]=(1-t)*xV[i]+t*yV[i]; return mu; })(),
+    M, D, sig
+  );
+}
+
+// Reference marginal density (analytical)
+function margDens(type, D) {
+  const f = MARG_FN[type];
+  const d = new Float64Array(D);
+  let s = 0;
+  for (let i=0;i<D;i++) { d[i] = f((i+0.5)/D); s += d[i]; }
+  for (let i=0;i<D;i++) d[i] /= s * (1/D); // convert to density
+  return d;
+}
+
+// ── Drawing ───────────────────────────────────────────────────────────────────
+const BG    = '#1a1a2e';
+const TEXT  = '#e0e0e0';
+const BLUE  = '#4fc3f7';
+const ORANGE= '#ff7043';
+
+function drawMain(canvas) {
+  const {M, xV, yV, rProb, cProb, gridPts, iter, bit, N, rType, cType} = sim;
+  const W = canvas.width, H = canvas.height;
+  const ctx = canvas.getContext('2d');
+
+  const LW = Math.round(W * 0.14);   // left strip width
+  const TH = Math.round(H * 0.14);   // top strip height
+  const MW = W - LW, MH = H - TH;
+
+  // Background
+  ctx.fillStyle = BG;
+  ctx.fillRect(0, 0, W, H);
+
+  // ── 2-D joint density / particle scatter ──
+  const G = Math.min(M, 128);
+
+  if (sim.viewMode === 'kde') {
+    const density = kde2D(xV, yV, M, G);
+    let dMax = 0;
+    for (const v of density) if (v > dMax) dMax = v;
+    const dMin = dMax * 2e-3;
+    const img = ctx.createImageData(MW, MH);
+    const d = img.data;
+    for (let py=0;py<MH;py++) {
+      for (let px=0;px<MW;px++) {
+        const gx = px * G / MW | 0;
+        const gy = py * G / MH | 0;
+        const v = density[gy*G+gx];
+        let t = 0;
+        if (v > dMin) { t = Math.log(v/dMin)/Math.log(dMax/dMin); t = Math.max(0,Math.min(1,t)); }
+        const [r,g,b] = INFERNO(t);
+        const idx = (py*MW+px)*4;
+        d[idx]=r; d[idx+1]=g; d[idx+2]=b; d[idx+3]=255;
+      }
+    }
+    ctx.putImageData(img, LW, TH);
+  } else {
+    // Particle scatter: dark background, one dot per particle
+    ctx.fillStyle = '#0a0a18';
+    ctx.fillRect(LW, TH, MW, MH);
+    // Dot radius scales down with M so the plot doesn't saturate
+    const r = Math.max(1.5, Math.min(4, 140 / Math.sqrt(M)));
+    ctx.fillStyle = '#4fc3f7cc';
+    for (let p = 0; p < M; p++) {
+      // x-axis = yV (c), y-axis = xV (r)  — same convention as KDE view
+      const px = LW + yV[p] * MW;
+      const py = TH + xV[p] * MH;
+      ctx.beginPath();
+      ctx.arc(px, py, r, 0, 2*Math.PI);
+      ctx.fill();
+    }
+  }
+
+  // ── Column marginal (top): exact empirical PMF of yV vs target PMF of c ──
+  // The swap preserves the multiset of yV → these bars never change.
+  const cPMF = new Float64Array(G);
+  for (let p=0; p<M; p++) cPMF[Math.min(G-1, yV[p]*G|0)] += 1/M;
+  const tgtC = new Float64Array(G);
+  { let s=0; for(let i=0;i<G;i++){tgtC[i]=MARG_FN[cType]((2*i+1)/(2*G));s+=tgtC[i];} for(let i=0;i<G;i++) tgtC[i]/=s; }
+
+  ctx.fillStyle = BG; ctx.fillRect(LW, 0, MW, TH);
+  const maxC = Math.max(...cPMF, ...tgtC) * 1.3 || 1;
+  const bw = MW / G;
+  ctx.fillStyle = BLUE + 'bb';
+  for (let i=0;i<G;i++) {
+    const bh = (cPMF[i]/maxC) * TH * 0.82;
+    ctx.fillRect(LW + i*bw, TH-bh, bw-0.5, bh);
+  }
+  // Target as step curve (matches bar width)
+  ctx.strokeStyle = ORANGE; ctx.lineWidth = 1.5; ctx.beginPath();
+  for (let i=0;i<G;i++) {
+    const h = (tgtC[i]/maxC)*TH*0.82;
+    const x0 = LW + i*bw, x1 = x0+bw, y = TH-h;
+    if (i===0) { ctx.moveTo(x0,y); ctx.lineTo(x1,y); }
+    else { ctx.lineTo(x0,y); ctx.lineTo(x1,y); }
+  }
+  ctx.stroke();
+  ctx.fillStyle = TEXT; ctx.font = '10px system-ui'; ctx.textAlign = 'center';
+  ctx.fillText(`Column marginal c  (current vs target)`, LW + MW/2, 11);
+
+  // ── Row marginal (left, horizontal, bars grow leftward) ──
+  // Exact empirical PMF of xV (never changes — x positions are fixed).
+  const rPMF = new Float64Array(G);
+  for (let p=0; p<M; p++) rPMF[Math.min(G-1, xV[p]*G|0)] += 1/M;
+  const tgtR = new Float64Array(G);
+  { let s=0; for(let i=0;i<G;i++){tgtR[i]=MARG_FN[rType]((2*i+1)/(2*G));s+=tgtR[i];} for(let i=0;i<G;i++) tgtR[i]/=s; }
+
+  ctx.fillStyle = BG; ctx.fillRect(0, TH, LW, MH);
+  const maxR = Math.max(...rPMF, ...tgtR) * 1.3 || 1;
+  const bh2 = MH / G;
+  ctx.fillStyle = BLUE + 'bb';
+  for (let i=0;i<G;i++) {
+    const bw2 = (rPMF[i]/maxR)*LW*0.85;
+    ctx.fillRect(LW-bw2, TH+i*bh2, bw2, bh2-0.5);
+  }
+  // Target as step curve
+  ctx.strokeStyle = ORANGE; ctx.lineWidth = 1.5; ctx.beginPath();
+  for (let i=0;i<G;i++) {
+    const w = (tgtR[i]/maxR)*LW*0.85;
+    const x = LW-w, y0 = TH+i*bh2, y1 = y0+bh2;
+    if (i===0) { ctx.moveTo(x,y0); ctx.lineTo(x,y1); }
+    else { ctx.lineTo(x,y0); ctx.lineTo(x,y1); }
+  }
+  ctx.stroke();
+
+  // Row label (rotated)
+  ctx.save(); ctx.translate(8, TH+MH/2); ctx.rotate(-Math.PI/2);
+  ctx.fillStyle = TEXT; ctx.font = '10px system-ui'; ctx.textAlign = 'center';
+  ctx.fillText('Row marginal r', 0, 0);
+  ctx.restore();
+
+  // ── Legend (top-right of heatmap) ──
+  ctx.fillStyle = TEXT; ctx.font = '10px system-ui'; ctx.textAlign = 'left';
+  const lx = LW+4, ly = TH+14;
+  ctx.fillStyle = BLUE + '99';
+  ctx.fillRect(lx, ly-8, 10, 9);
+  ctx.fillStyle = TEXT;
+  ctx.fillText('current', lx+13, ly);
+  ctx.strokeStyle = ORANGE; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(lx+28, ly-4); ctx.lineTo(lx+38, ly-4); ctx.stroke();
+  ctx.fillText('target', lx+42, ly);
+
+  // ── Axis labels ──
+  ctx.fillStyle = TEXT; ctx.font = '10px system-ui'; ctx.textAlign = 'center';
+  ctx.fillText('y  (second marginal)', LW + MW/2, H - 2);
+  ctx.save(); ctx.translate(LW+8, TH+MH/2); ctx.rotate(-Math.PI/2);
+  ctx.fillText('x  (first marginal)', 0, 0); ctx.restore();
+}
+
+const BRIDGE_COLS = ['#b39ddb', '#4dd0e1', '#a5d6a7'];
+
+function drawBridges(canvas) {
+  const {M, xV, yV, eps, rType, cType} = sim;
+  const W = canvas.width, H = canvas.height;
+  const ctx = canvas.getContext('2d');
+
+  ctx.fillStyle = BG; ctx.fillRect(0,0,W,H);
+
+  const times = [0.25, 0.5, 0.75];
+  const nP = times.length;
+  const pH = Math.floor(H / nP);
+  const D  = 300;   // density grid resolution
+  const pl = 6, pr = 6, pt = 16, pb = 6;
+
+  for (let pi=0; pi<nP; pi++) {
+    const t = times[pi];
+    const yOff = pi * pH;
+
+    const bd = bridgeDensity(xV, yV, M, t, D, eps);
+    // Linearly interpolated reference density
+    const refD = new Float64Array(D);
+    const dR = margDens(rType, D), dC = margDens(cType, D);
+    for (let i=0;i<D;i++) refD[i] = (1-t)*dR[i] + t*dC[i];
+
+    let maxD = 0;
+    for (const v of bd) if (v > maxD) maxD = v;
+    for (const v of refD) if (v > maxD) maxD = v;
+    maxD *= 1.2; if (!maxD) maxD = 1;
+
+    const pW = W - pl - pr;
+    const pHi = pH - pt - pb;
+
+    // Plot background
+    ctx.fillStyle = '#12122a';
+    ctx.fillRect(pl, yOff+pt, pW, pHi);
+
+    // Title
+    ctx.fillStyle = BRIDGE_COLS[pi]; ctx.font = '10px system-ui'; ctx.textAlign = 'left';
+    ctx.fillText(`t = ${t}`, pl+4, yOff+pt-3);
+
+    // Bridge density (solid)
+    ctx.strokeStyle = BRIDGE_COLS[pi]; ctx.lineWidth = 1.8; ctx.setLineDash([]);
+    ctx.beginPath();
+    for (let i=0;i<D;i++) {
+      const x = pl + (i+.5)/D*pW;
+      const y = yOff+pt+pHi - (bd[i]/maxD)*pHi;
+      i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+
+    // Reference blend (dashed orange)
+    ctx.strokeStyle = ORANGE + '88'; ctx.lineWidth = 1.0; ctx.setLineDash([4,3]);
+    ctx.beginPath();
+    for (let i=0;i<D;i++) {
+      const x = pl + (i+.5)/D*pW;
+      const y = yOff+pt+pHi - (refD[i]/maxD)*pHi;
+      i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Legend at bottom
+  const ly = H - 6;
+  ctx.fillStyle = BRIDGE_COLS[0]; ctx.strokeStyle = BRIDGE_COLS[0]; ctx.lineWidth=1.5; ctx.setLineDash([]);
+  ctx.beginPath(); ctx.moveTo(pl,ly-4); ctx.lineTo(pl+14,ly-4); ctx.stroke();
+  ctx.font='9px system-ui'; ctx.fillText('bridge mixture',pl+17,ly);
+  ctx.strokeStyle = ORANGE+'88'; ctx.lineWidth=1; ctx.setLineDash([4,3]);
+  ctx.beginPath(); ctx.moveTo(pl+90,ly-4); ctx.lineTo(pl+104,ly-4); ctx.stroke();
+  ctx.fillStyle=ORANGE+'aa'; ctx.setLineDash([]); ctx.fillText('(1−t)r + t·c',pl+107,ly);
+}
+
+// ── Layout & resize ───────────────────────────────────────────────────────────
+function resize() {
+  const mc = document.getElementById('main-canvas');
+  const bc = document.getElementById('bridge-canvas');
+  const vw = document.getElementById('viz-container').clientWidth;
+  const bpW = 260, bpPad = 16;
+  const mainW = Math.max(300, vw - bpW - 12);
+  const mainH = mainW;
+  mc.width  = mainW; mc.height = mainH;
+  bc.width  = bpW - bpPad; bc.height = mainH - 16;
+  render();
+}
+
+function render() {
+  drawMain(document.getElementById('main-canvas'));
+  drawBridges(document.getElementById('bridge-canvas'));
+  document.getElementById('stats').textContent =
+    `Iter ${sim.iter}  |  bit ${sim.bit}/${sim.N}  |  M = ${sim.M}`;
+}
+
+// ── Animation ─────────────────────────────────────────────────────────────────
+let rafId = null;
+
+function loop() {
+  for (let s=0; s<sim.speed; s++) doBitStep();
+  render();
+  if (sim.running) rafId = requestAnimationFrame(loop);
+}
+
+function startStop() {
+  sim.running = !sim.running;
+  const btn = document.getElementById('btn-play');
+  if (sim.running) {
+    btn.textContent = '⏸ Pause'; btn.classList.add('active');
+    rafId = requestAnimationFrame(loop);
+  } else {
+    btn.textContent = '▶ Play'; btn.classList.remove('active');
+    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+  }
+}
+
+// ── Controls ──────────────────────────────────────────────────────────────────
+function reset() {
+  const wasRunning = sim.running;
+  if (sim.running) startStop();
+  initSim(); render();
+  if (wasRunning) startStop();
+}
+
+document.getElementById('sl-N').addEventListener('input', function() {
+  sim.N = +this.value;
+  document.getElementById('lbl-N').textContent = `N=${sim.N}, ${1<<sim.N} particles`;
+  reset();
+});
+
+document.getElementById('sl-eps').addEventListener('input', function() {
+  sim.eps = Math.pow(10, +this.value);
+  document.getElementById('lbl-eps').textContent = `ε = ${sim.eps.toFixed(4)}`;
+  render();
+});
+
+document.getElementById('sel-r').addEventListener('change', function() {
+  sim.rType = this.value; reset();
+});
+document.getElementById('sel-c').addEventListener('change', function() {
+  sim.cType = this.value; reset();
+});
+
+document.getElementById('sl-speed').addEventListener('input', function() {
+  sim.speed = +this.value;
+  document.getElementById('lbl-speed').textContent = `${sim.speed} steps/frame`;
+});
+
+
+document.getElementById('btn-play').addEventListener('click', startStop);
+document.getElementById('btn-step').addEventListener('click', () => { doBitStep(); render(); });
+document.getElementById('btn-reset').addEventListener('click', reset);
+
+document.getElementById('btn-view').addEventListener('click', function() {
+  sim.viewMode = sim.viewMode === 'kde' ? 'particles' : 'kde';
+  this.textContent = sim.viewMode === 'kde' ? 'Particles' : 'KDE';
+  this.classList.toggle('active', sim.viewMode === 'particles');
+  render();
+});
+
+window.addEventListener('resize', () => resize());
+
+// ── Info modal ───────────────────────────────────────────────────────────────
+const infoOverlay = document.getElementById('info-overlay');
+document.getElementById('info-btn').addEventListener('click', () => {
+  infoOverlay.classList.add('open');
+});
+document.getElementById('info-close').addEventListener('click', () => {
+  infoOverlay.classList.remove('open');
+});
+infoOverlay.addEventListener('click', (e) => {
+  if (e.target === infoOverlay) infoOverlay.classList.remove('open');
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') infoOverlay.classList.remove('open');
+});
+
+// ── Boot ─────────────────────────────────────────────────────────────────────
+initSim();
+resize();
+</script>
+</body>
+</html>
