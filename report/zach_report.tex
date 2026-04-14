@@ -65,11 +65,38 @@
 The Schrodinger Bridge problem is a classic problem in physics, which has
 received renewed attention in statistics thanks to its application to diffusion
 models. This report provides an accesible introduction to the Schrodinger bridge
-problem for statisticians, discusses its connection to diffusion model, and
-compares 
+problem for statisticians, discusses its connection to diffusion models, and
+provides a simple MCMC algorithm to sample from a finite particle approximation.
 \end{abstract}
 
 \section{Introduction}
+Recent work in generative modelling has brought particular focus to the area
+of diffusion processes
+\cite{ho2020denoisingdiffusionprobabilisticmodels}
+\cite{song2020generativemodelingestimatinggradients}. Amongst these works,
+\cite{debortoli2023diffusionschrodingerbridgeapplications}
+makes use of the concept of a Schrodinger bridge
+\cite{Schrodinger1932}; a diffusion process with
+constrained marginals that ensures finite time transitions from the data
+distribution to the prior.
+
+This report builds up intuition about the Schrodinger bridge problem from the
+ground up, based on a finite particle perspective.
+We begin with discussing Brownian bridges, the fundamental building blocks of
+the Schrodinger bridge.  We then move onto mixtures of Brownian bridges which
+arise when we have multiple pairs of particles. By allowing the particles'
+pairings to be chosen probabilistically according to the diffusion dynamics, we
+recover a finite version of the Schrodinger bridge problem. In the limit of
+infinite particles, this approaches exactly the standard Schrodinger bridge
+problem through one-dimensional visualizations.
+
+In addition to introducing the problem formulation, we discuss the classical
+Sinkhorn solution, as well as the novel generative modelling centered
+formulation provided by
+\cite{debortoli2023diffusionschrodingerbridgeapplications}.  Finally we
+introduce a simple MCMC algorithm to simulate from the finite particle system,
+and graphically demonstrate the simulations consistency with the 
+Schrodinger bridge problem.
 
 \section{Brownian Bridge}
 The Brownian Bridge can be seen as the precursor problem of the Schrodinger
@@ -124,7 +151,7 @@ its end point. That is
 \begin{align}
     X^i_t | X^i_0 = a_i, X^i_1 = b_i \sim \Norm(ta_i + (1-t)b_i, t(1-t))
 \end{align}
-On the other hand looking at the particles as a collective, we might be
+Looking at the particles as a collective, we might be
 concerned with the overall \emph{density} of particles at time $t$. This 
 density is given by a \emph{mixture of normals} defined by the respective
 Brownian Bridges.
@@ -140,84 +167,88 @@ condition on $X^i_1 - X^i_0$. We note that we have to work with differences
 because we haven't fully specified a probability model; the Brownian motion only
 specifies the relationship between $X_1$ and $X_0$. This gives a Gaussian
 likelihood $\mathcal L \propto \exp\left(-\frac 1 2(x_1-x_0)^2\right)$. Denoting
-the pairing by $(\mathbf i, \mathbf j)$ and, 
+the pairing by the tuple of vectors $(\mathbf i, \mathbf j)$ and, 
 taking this product over all $i$ points, we get the posterior over pairings by
 \begin{align}
-    \mathbf p(\mathbf i,\mathbf j) \propto \prod_{(i,j)} \exp\left(-\frac 1 2(a_i-b_j)^2\right)
+    p(\mathbf i,\mathbf j) \propto \prod_{(i,j)} \exp\left(-\frac 1 2(a_i-b_j)^2\right)
 \end{align}
-(This pairing as written is actually not identifiable, to solve this we can
-simply fix $\mathbf i = [1, 2, 3, \ldots, N]$). We make an interesting physical
-remark that will become important later. Supposing that we associated
-$p$ with the counting measure on $[N] \times [N]$ where $[n] = \{1, \ldots N\}$
-such that $p(i,j)=1$ if and only if particle $i$ ends up at location $j$ (i.e.
+(To ensure the pairing is uniquely identifiable we may fix $\mathbf i = [1, 2,
+3, \ldots, N]$). We make an interesting physical remark that will become
+important later. Supposing that we associated $q$ with the counting measure on
+$[N] \times [N]$ where $[n] = \{1, \ldots N\}$ such that $q(i,j)=\frac 1 N$ if
+particle $i$ ends up at location $j$ and $0$ otherwise (i.e.
 it absorbs all the information about which particle goes where). Let
-$q$ be the reference measure on $[N] \times [N]$ given by
-$q(i,j) = \exp\left(-\frac 1 2(a_i-b_j)^2\right)$. Then $q$ contains all the
+$r$ be the reference measure on $[N] \times [N]$ given by
+$r(i,j) = \exp\left(-\frac 1 2(a_i-b_j)^2\right)$. Then $r$ contains all the
 information about how Brownian motion actually works (i.e. about the underlying
-system). Then the log posterior actually represents the negative cross-entropy 
-between $p$ and $q$. That is
+system). It is typically not noramlized. The log posterior turns out to be the
+negative cross-entropy between $q$ and $r$. That is
 \begin{align}
-    -H(p,q) &= \int \log q(i,j) \d p \\
+    -H(q,r) &= \int \log r(i,j) \d q \\
     &= \frac 1 N \sum_{(i,j)} -\frac 1 2 (a_i - b_j)^2 \\
-    &= \frac 1 N \log \mathbf p(\mathbf i, \mathbf j) \\
-    \log \mathbf p(\mathbf i, \mathbf j) &= -NH(p,q)
+    &= \frac 1 N \log p(\mathbf i, \mathbf j) \\
+    \log p(\mathbf i, \mathbf j) &= -NH(q,r)
 \end{align}
-Already, we can see an interesting phenomenon. Notice that multiplying the
-log-likelihood by $N$ corresponds to a \emph{power posterior}. Therefore for
-large $N$ we might expect the posterior to concentrate near the minimizer of
-the cross-entropy.
+Already, we can see some interesting phenomena. Firstly, we notice the
+similarity beween the sum of squares losses and the cost function in the
+Monge-Kantovorich problem. We will return to this later. Furthermore, notice
+that multiplying the log-likelihood by $N$ corresponds to a \emph{power
+posterior}. Therefore for large $N$ we might expect the posterior to concentrate
+near the minimizer of the cross-entropy.
 
 \section{Many particles, finite points}
+\label{sec:many_particles}
 We generalize once more. Let us consider $M$ particles starting at each of
 the $N$ locations, for a total of $M \times N$ particles. We need to keep
 track of how many particles from each of the $N$ starting locations end up in 
 each of the $N$ ending locations. We can easily generalize the discrete measure
-$p$ from before to such that $p(i,j)$ is the \emph{number of particles} starting
+$q$ from before to such that $q(i,j)$ is the \emph{fraction of particles} starting
 at location $i$ and ending up at location $j$. However, now we have to be a
 little bit more careful with how we pick our prior. This gets a little confusing
 to think of priors over measures, so we introduce another way to think of 
-$p$-as a matrix. In this case let the matrix be given by $P_{i,j} = p(i,j)$.
+$q$-as a matrix. In this case let the matrix be given by $Q_{i,j} = q(i,j)$.
 
 Firstly we must constrain the support such that the each row and column of 
-$P$ sums to $M$. These are our \emph{marginal} constraints. We next must
+$Q$ sums to $\frac 1 N$. These are our \emph{marginal} constraints. We next must
 consider actually assigning matches between particles on the left and the right.
 We again assume a uniform distribution over all possible pairings that respect
-our marginal constraints. Note there is a distinction between pairings and $P$
+our marginal constraints. Note there is a distinction between a uniform 
+distribution on pairings and uniform distribution on $Q$
 matrices. For example if we swap the labels on two particles we have a new
-pairing, but the $P$ matrix is unchanged! Indeed we have discovered the
-difference between a microstate (pairing) and macro-state (P-matrix).
+pairing, but the $Q$ matrix is unchanged! Indeed we have discovered the
+difference between a microstate (pairing) and macro-state ($Q$-matrix).
 
-For our $P$ matrix this has \emph{combinatorial}
-implications. The total number of pairings correponding to a $P$ matrix is
+For our $Q$ matrix this has \emph{combinatorial}
+implications. The total number of pairings correponding to a $Q$ matrix is
 given by a multinomial, namely
 \begin{align}
-    \frac{(NM)!}{\prod_{i,j} P_{i,j}!}
+    \frac{(NM)!}{\prod_{i,j} (NMP_{i,j})!}
 \end{align}
-Our prior over $P$ matrices has this form. Taking into account
+Taking into account
 the Brownian Noise likelihood from early, we get the posterior
 \begin{align}
-    p(P) \propto \frac{1}{\prod_{i,j} P_{i,j}}!\prod_{(i,j)} \exp\left(-\frac 1 2(a_i-b_j)^2\right) \\
-    \log p(P) = - \sum_{i,j} \log P_{i,j}! + \sum_{(i,j)} - \frac 1 2 P_{i,j}(a_i - b_j)^2 + \log Z
+    p(Q) \propto \frac{1}{\prod_{i,j} (NMQ_{i,j})!}\prod_{(i,j)} \exp\left(-\frac 1 2(a_i-b_j)^2\right) \\
+    \log p(Q) = - \sum_{i,j} \log (NMQ_{i,j})! + \sum_{(i,j)} - \frac 1 2 NMQ_{i,j}(a_i - b_j)^2 + \log Z
 \end{align}
-Where $Z$ is a normalizing constant. Viewing $P$ as a probability measure, and using $q$
+Where $Z$ is a normalizing constant. Viewing $Q$ as a probability measure, and using $r$
 to denote the reference measure from before, the second term becomes a multiple
-of the cross entropy, namely $- NM H(p,q)$.
+of the cross entropy, namely $- NM H(q,r)$.
 Using Stirling's approximation, the first term becomes 
 \begin{align}
-    \sum_{i,j} - P_{i,j} \log P_{i,j} + P_{i,j} + O(\log P_{i,j})
+    \sum_{i,j} - NMQ_{i,j} \log NMQ_{i,j} + NMQ_{i,j} + O(\log NMQ_{i,j})
 \end{align}
 On practical scales, the first two terms are the most significant.
 Normalizing by the total $NM$ particles,
-we note that this approaches the \emph{entropy} (in the statistics sense) of the probability measure 
-version of $P$ plus a constant
+we note that this approaches the \emph{entropy} (in the statistics sense) of 
+$q$ plus a constant
 \begin{align}
-    \sum_{i,j} -P_{i,j} \log P_{i,j} + P_{i,j} &=
+    \sum_{i,j} -NMQ_{i,j} \log NMQ_{i,j} + NMQ_{i,j} &=
         NM H(p) - NM \log (NM) + NM
 \end{align}
 Thus our large $M$ approximation gives the posterior as 
 \begin{align}
-    \log p(P) &= NM (H(p) - H(p,q)) + NM - NM \log (NM) \\
-    &= NM KL(p | q) +  NM - HM \log (NM)
+    \log p(Q) &= NM (H(q) - H(q,r)) + NM - NM \log (NM) \\
+    &= NM KL(q | r) +  NM - NM \log (NM)
 \end{align}
 Once again, we see a power posterior. Note that there is another equivalent way we could
 have reached this conclusion. First consider $NM$ particles
@@ -229,28 +260,32 @@ requirements we recover exactly the same posterior! In the nomenclature of
 statistical mechanics, the reference measure corresponds to the \emph{energy}.
 
 Either way we view it, in the limit of infinite $M$, the
-distribution on $P$ collapses to the delta distribution at the minimizer of the
+distribution on $Q$ collapses to the delta distribution at the minimizer of the
 $KL$ to the reference distribution subject to our marginal requirements. In
 statistical mechanics we might interpret negative $KL$ as entropy. In other
 words, we have discovered the principle of maximum entropy. We have also
-discovered the concept of a Schrodinger Bridge.
+discovered the concept of a Schrodinger Bridge. Another interesting point,
+we make is to recall that the cross entropy corresponds to the cost function
+from the Monge-Kantovorich problem. Thus this optimizaiton corresponds
+to an \emph{entropy-regularized} version of the Monge-Kantovorich problem.
+Changing variance of the Brownian motion changes the strength of
+regularization.
 
 \section{The Schrodinger Bridge Problem}
-Armed with a deep understanding of Brownian bridges, we are now ready to
+Armed with a deeper understanding of Brownian bridges, we are now ready to
 state the Schrodinger bridge problem as the continous version of our previous
 mixture of Brownian bridges problem. Briefly, given a Riemannian manifold
 $\mathcal X$, the (static) Schrodinger bridge problem is to find the joint
-distribution $P$ on $\mathcal X \times \mathcal X$ which
+distribution $Q$ on $\mathcal X \times \mathcal X$ which
 \begin{enumerate}
     \item Satisfies the marginal constraints $X_0 \sim \mu$ and $X_1 \sim \nu$
     \item Minimizes the
-KL-divergence to the reference Brownian motion on $\mathcal X \times \mathcal X$
+KL-divergence to the reference Brownian motion $R$ on $\mathcal X \times \mathcal X$
 \end{enumerate}
 In the general case, the reference Brownian motion is given by
-$Q(x_0, x_1) \propto \exp\left(-\frac 1 2 (x_1 - x_0)^2 \right)$. The reference
-is always a measure, but it may not be a probability measure. From this
-formulation the connection to \emph{optimal transport} becomes clear. Once
-a transport plan is found, the distribution on paths is just a mixture of
+$R(x_0, x_1) \propto \exp\left(-\frac 1 2 (x_1 - x_0)^2 \right)$. The reference
+is always a measure, but it may not be a probability measure. Once
+a solution is found, the distribution on paths is just a mixture of
 Brownian bridges with weights given by the transport plan.
 
 \section{Schrodinger Bridge to Diffusion Models}
@@ -262,7 +297,8 @@ essentially consist of the following conceptual sequence
     distribution at the prior
     \item Run the forward process until it is close to stationary (i.e. the prior)
     \item Use samples from the forward process to \emph{learn} the backwards process.
-    This amounts to learning the score (CITE ALL THE LITERATURE)
+    This amounts to learning the score \cite{song2020generativemodelingestimatinggradients}
+    \cite{ho2020denoisingdiffusionprobabilisticmodels}
 \end{enumerate}
 We might be slightly uncomfortable with the second step above, since it relies
 on us simply trusting that the diffusion process has been run long enough.
@@ -277,14 +313,15 @@ first key idea in \cite{debortoli2023diffusionschrodingerbridgeapplications}.
 
 \section{Solving the Schrodinger Bridge Problem}
 We now return to the problem of actually solving the Schrodinger bridge problem.
-We will focus again on a finite set. First we will introduce the classic
+We will focus again on a finite set as discussed in section
+\ref{sec:many_particles}. First we will introduce the classic
 Sinkhorn algorithm, before moving on to the implementation provided in 
 \cite{debortoli2023diffusionschrodingerbridgeapplications}. In our context
-the Sinkhorn algorithm is very simple. Letting $P$ be transport matrix
+the Sinkhorn algorithm is very simple. Letting $Q$ be transport matrix
 normalized by the total number of particles. The Sinkhorn algorithm proceeds
 as follows
 \begin{enumerate}
-    \item Initialize $P$ at the reference distribution
+    \item Initialize $Q$ at the reference distribution
     \item While not converged
     \begin{enumerate}
         \item Rescale the \textbf{rows} to satisfy the row marginal condition
@@ -298,10 +335,10 @@ constraints! We will not provide a proof of convergence here, but we will
 provide some intuition. It may be helpful to think of this algorithm in terms of
 conditional distributions. Let rows correspond to
 $X_0$ with target marginal $\mu$ and columns to $X_1$ with target marginal
-$\nu$. The time we rescale the rows corresponds to computing the joint
-distribution specified by $\mu$ and the reference dynamics. This joint
+$\nu$. The very first time we rescale the rows corresponds to computing the joint
+distribution specified by $\mu$ and the \emph{reference dynamics}. This joint
 distribution implies a \emph{backwards} conditional distribution $X_0|X_1$.
-Crucially, if we now reweight the columns, the reverse conditional distribution
+Crucially, if we now reweight the columns, the \emph{backwards} conditional distribution
 is maintained and the $X_1$ marginal is adjusted. However, the forward
 conditional $X_1 | X_0$ and $X_0$ marginal will now be perturbed. The algorithm
 will repeat until both marginal constraints are satisfied.
@@ -328,13 +365,13 @@ At a high-level the algorithm is as followed
 This is exactly a continuous analog of the Sinkhorn algorithm, but where
 conditional distributions are given by \emph{diffusion dynamics}.
 
-\section{Experiments}
-\subsection{Comparison with Annealing}
+\section{Simulation by MCMC}
+In section \ref{sec:many_particles} we introduced a probability distribution
+over transport plans in the finite case. In this section we introduce a
+Markovian interacting particle system which admits this distribution as
+a stationary distribution. The algorithm is described in 
 
 
-\subsection{Comparison with Annealed Langevin Diffusion}
-
-\subsection{Stat mech simulation}
 
 \section{Conclusion}
 
