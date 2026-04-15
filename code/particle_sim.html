@@ -343,23 +343,31 @@ canvas { display: block; border-radius: 6px; }
 
     <h3>The Bit-Flip MH Kernel</h3>
     <p>
-      We use a Markov chain that preserves marginal invariance exactly.
-      At each step, bit index <span class="math">k</span> is selected and all pairs
-      <span class="math">(i, i ⊕ 2ᵏ)</span> are proposed for a
-      <span class="math">y</span>-swap. The Metropolis–Hastings acceptance probability is:
+      We use a Markov chain that preserves marginal invariance exactly. The algorithm alternates
+      between two phases each consisting of a full bit-sweep followed by a random-pairing shuffle:
+    </p>
+    <ol style="margin: 6px 0 6px 18px; line-height: 1.8;">
+      <li><strong>y-swap phase:</strong> cycle through bit indices <span class="math">k = 0,…,N−1</span>;
+        for each <span class="math">k</span> propose exchanging <span class="math">yᵢ ↔ yⱼ</span>
+        for all pairs <span class="math">(i, i ⊕ 2ᵏ)</span>, then run a random-pairing y-shuffle.</li>
+      <li><strong>x-swap phase:</strong> same bit-sweep structure, but propose exchanging
+        <span class="math">xᵢ ↔ xⱼ</span>, then run a random-pairing x-shuffle.</li>
+    </ol>
+    <p>
+      Both swap types use the same Metropolis–Hastings acceptance probability:
     </p>
     <p style="text-align:center; color:#e0e0e0; font-family:Georgia,serif; font-style:italic;">
       α = min(1, exp(−ΔE/ε))
     </p>
     <p>
       where <span class="math">ΔE = (xᵢ−yⱼ)² + (xⱼ−yᵢ)² − (xᵢ−yᵢ)² − (xⱼ−yⱼ)²</span>
-      is the change in squared-distance cost. Since swaps only exchange
-      <span class="math">y</span>-values between particles, the empirical marginals of both
-      <span class="math">x</span> and <span class="math">y</span> are <em>exactly preserved</em> at every step.
+      is the change in squared-distance cost (symmetric in <span class="math">x</span> and
+      <span class="math">y</span>). Each phase only moves one set of values, so both empirical
+      marginals are <em>exactly preserved</em> at every step.
     </p>
     <p>
-      A random pairing step is interlaced once per full cycle through all <span class="math">N</span> bit indices
-      to ensure ergodicity (preventing the chain from cycling without mixing).
+      The random-pairing shuffle after each bit-sweep ensures ergodicity by preventing the chain
+      from cycling without mixing.
     </p>
 
     <h3>Controls</h3>
@@ -465,7 +473,7 @@ const sim = {
 function initSim() {
   const {N, rType, cType} = sim;
   const M = 1 << N;
-  sim.M = M; sim.iter = 0; sim.bit = 0;
+  sim.M = M; sim.iter = 0; sim.bit = 0; sim.phase = 0;
 
   const pts = new Float64Array(M);
   for (let i=0;i<M;i++) pts[i] = (2*i+1)/(2*M);
@@ -481,7 +489,7 @@ function initSim() {
   shuffle(sim.yV);
 }
 
-// MH swap attempt between particles i and j
+// MH y-swap attempt between particles i and j
 function trySwap(i, j) {
   const {eps, xV, yV} = sim;
   const xi=xV[i], yi=yV[i], xj=xV[j], yj=yV[j];
@@ -489,34 +497,60 @@ function trySwap(i, j) {
   if (dE <= 0 || Math.random() < Math.exp(-dE)) { yV[i]=yj; yV[j]=yi; }
 }
 
+// MH x-swap attempt between particles i and j
+function trySwapX(i, j) {
+  const {eps, xV, yV} = sim;
+  const xi=xV[i], yi=yV[i], xj=xV[j], yj=yV[j];
+  const dE = ((xj-yi)**2 + (xi-yj)**2 - (xi-yi)**2 - (xj-yj)**2) / eps;
+  if (dE <= 0 || Math.random() < Math.exp(-dE)) { xV[i]=xj; xV[j]=xi; }
+}
+
 // Bit-flip kernel: sweep all pairs differing in bit `bit`
+// phase 0 = y-swap, phase 1 = x-swap
 function doBitStep() {
-  const {M, N, bit} = sim;
+  const {M, N, bit, phase} = sim;
   const mask = 1 << bit;
   for (let i = 0; i < M; i++) {
     if ((i >> bit) & 1) continue;
-    trySwap(i, i ^ mask);
+    if (phase === 0) trySwap(i, i ^ mask);
+    else             trySwapX(i, i ^ mask);
   }
   sim.bit = (bit + 1) % N;
   if (sim.bit === 0) {
-    // End of a full N-bit cycle: run one random-pairing kernel pass
-    doRandomStep();
-    sim.iter++;
+    // End of a full N-bit cycle: run one random-pairing kernel pass, then switch phase
+    if (phase === 0) {
+      doRandomStep();    // shuffle y-values
+      sim.phase = 1;
+    } else {
+      doRandomStepX();   // shuffle x-values
+      sim.phase = 0;
+      sim.iter++;
+    }
   }
 }
 
-// Random pairing kernel: shuffle indices, pair consecutive, propose swaps
+// Random pairing kernel: shuffle indices, pair consecutive, propose y-swaps
 function doRandomStep() {
   const {M, xV, yV} = sim;
-  // Build a random permutation
   const perm = new Int32Array(M);
   for (let i = 0; i < M; i++) perm[i] = i;
   for (let i = M-1; i > 0; i--) {
     const j = Math.random()*(i+1)|0;
     const t = perm[i]; perm[i] = perm[j]; perm[j] = t;
   }
-  // Pair up consecutive elements and try each swap
   for (let k = 0; k < M-1; k += 2) trySwap(perm[k], perm[k+1]);
+}
+
+// Random pairing kernel: shuffle indices, pair consecutive, propose x-swaps
+function doRandomStepX() {
+  const {M, xV, yV} = sim;
+  const perm = new Int32Array(M);
+  for (let i = 0; i < M; i++) perm[i] = i;
+  for (let i = M-1; i > 0; i--) {
+    const j = Math.random()*(i+1)|0;
+    const t = perm[i]; perm[i] = perm[j]; perm[j] = t;
+  }
+  for (let k = 0; k < M-1; k += 2) trySwapX(perm[k], perm[k+1]);
 }
 
 // ── Density helpers ───────────────────────────────────────────────────────────
@@ -806,8 +840,9 @@ function resize() {
 function render() {
   drawMain(document.getElementById('main-canvas'));
   drawBridges(document.getElementById('bridge-canvas'));
+  const phaseLabel = sim.phase === 0 ? 'y-swap' : 'x-swap';
   document.getElementById('stats').textContent =
-    `Iter ${sim.iter}  |  bit ${sim.bit}/${sim.N}  |  M = ${sim.M}`;
+    `Iter ${sim.iter}  |  ${phaseLabel}  bit ${sim.bit}/${sim.N}  |  M = ${sim.M}`;
 }
 
 // ── Animation ─────────────────────────────────────────────────────────────────

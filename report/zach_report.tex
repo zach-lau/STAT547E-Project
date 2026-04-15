@@ -58,15 +58,15 @@
 }
 
 \begin{document}
-\title{STAT 547E - Report - Diffusion Schrodinger Bridge}
+\title{STAT 547E - Report - Diffusion Schrödinger Bridge}
 \author{Zachary Lau}
 \date{\today}
 \maketitle
 
 \begin{abstract}
-The Schrodinger Bridge problem is a classic problem in physics, which has
+The Schrödinger Bridge problem is a classic problem in physics, which has
 received renewed attention in statistics thanks to its application to diffusion
-models. This report provides an accesible introduction to the Schrodinger bridge
+models. This report provides an accesible introduction to the Schrödinger bridge
 problem for statisticians, discusses its connection to diffusion models, and
 provides a simple MCMC algorithm to sample from a finite particle approximation.
 \end{abstract}
@@ -77,31 +77,31 @@ of diffusion processes
 \cite{ho2020denoisingdiffusionprobabilisticmodels}
 \cite{song2020generativemodelingestimatinggradients}. Amongst these works,
 \cite{debortoli2023diffusionschrodingerbridgeapplications}
-makes use of the concept of a Schrodinger bridge
+makes use of the concept of a Schrödinger bridge
 \cite{Schrodinger1932}; a diffusion process with
 constrained marginals that ensures finite time transitions from the data
 distribution to the prior.
 
-This report builds up intuition about the Schrodinger bridge problem from the
+This report builds up intuition about the Schrödinger bridge problem from the
 ground up, based on a finite particle perspective.
 We begin with discussing Brownian bridges, the fundamental building blocks of
-the Schrodinger bridge.  We then move onto mixtures of Brownian bridges which
+the Schrödinger bridge.  We then move onto mixtures of Brownian bridges which
 arise when we have multiple pairs of particles. By allowing the particles'
 pairings to be chosen probabilistically according to the diffusion dynamics, we
-recover a finite version of the Schrodinger bridge problem. In the limit of
-infinite particles, this approaches exactly the standard Schrodinger bridge
+recover a finite version of the Schrödinger bridge problem. In the limit of
+infinite particles, this approaches exactly the standard Schrödinger bridge
 problem through one-dimensional visualizations.
 
 In addition to introducing the problem formulation, we discuss the classical
 Sinkhorn solution, as well as the novel generative modelling centered
-formulation provided by
+formulation provided by DeBortoli et al
 \cite{debortoli2023diffusionschrodingerbridgeapplications}.  Finally we
 introduce a simple MCMC algorithm to simulate from the finite particle system,
 and graphically demonstrate the simulations consistency with the 
-Schrodinger bridge problem.
+Schrödinger bridge problem.
 
 \section{Brownian Bridge}
-The Brownian Bridge can be seen as the precursor problem of the Schrodinger
+The Brownian Bridge can be seen as the precursor problem of the Schrödinger
 Bridge Problem. The set up is as follows.  Consider a particle that begins at point $X_0
 = 0$ at time $t=0$. This particle evolves according to a standard Brownian
 motion (e.g. Wiener process with unit variance). Then conditioning on the
@@ -132,7 +132,7 @@ Here we derive the variance from the Schur complement, or equivalently simply
 from the properties of multivariate Gaussians. Considering all $t$
 simultaneously, this is known as a Brownian bridge. This result is quite
 aesthetic, we note that it is symmetric, which reflects the symmetry in Brownian
-motion.  Furthermore as Schrodinger points out in his original paper, the
+motion.  Furthermore as Schrödinger points out in his original paper, the
 density can be seen as a \emph{product} of a density term from a Brownian motion
 starting at $X_0=0$ and another time-reversed Browniain motion starting at
 $X_1=0$. As a minor extension, if we instead consider a particle starting at
@@ -178,7 +178,7 @@ taking this product over all $i$ points, we get the posterior over pairings by
 3, \ldots, N]$). We make an interesting physical remark that will become
 important later. Supposing that we associated $q$ with the counting measure on
 $[N] \times [N]$ where $[n] = \{1, \ldots N\}$ such that $q(i,j)=\frac 1 N$ if
-particle $i$ ends up at location $j$ and $0$ otherwise (i.e.
+the particle that starts at $i$ ends up at location $j$ and $0$ otherwise (i.e.
 it absorbs all the information about which particle goes where). Let
 $r$ be the reference measure on $[N] \times [N]$ given by
 $r(i,j) = \exp\left(-\frac 1 2(a_i-b_j)^2\right)$. Then $r$ contains all the
@@ -224,7 +224,7 @@ For our $Q$ matrix this has \emph{combinatorial}
 implications. The total number of pairings correponding to a $Q$ matrix is
 given by a multinomial, namely
 \begin{align}
-    \frac{(NM)!}{\prod_{i,j} (NMP_{i,j})!}
+    \frac{(NM)!}{\prod_{i,j} (NMQ_{i,j})!}
 \end{align}
 Taking into account
 the Brownian Noise likelihood from early, we get the posterior
@@ -266,18 +266,18 @@ distribution on $Q$ collapses to the delta distribution at the minimizer of the
 $KL$ to the reference distribution subject to our marginal requirements. In
 statistical mechanics we might interpret negative $KL$ as entropy. In other
 words, we have discovered the principle of maximum entropy. We have also
-discovered the concept of a Schrodinger Bridge. Another interesting point,
+discovered the concept of a Schrödinger Bridge. Another interesting point,
 we make is to recall that the cross entropy corresponds to the cost function
-from the Monge-Kantorovich problem. Thus this optimizaiton corresponds
-to an \emph{entropy-regularized} version of the Monge-Kantorovich problem.
-Changing variance of the Brownian motion changes the strength of
+from the Monge-Kantorovich problem. Thus this optimization problem corresponds
+to an \emph{entropy-regularized} version of the Monge-Kantorovich problem,
+where the variance of the Brownian motion changes the strength of
 regularization.
 
-\section{The Schrodinger Bridge Problem}
+\section{The Schrödinger Bridge Problem}
 Armed with a deeper understanding of Brownian bridges, we are now ready to
-state the Schrodinger bridge problem as the continous version of our previous
+state the Schrödinger bridge problem as the continous version of our previous
 mixture of Brownian bridges problem. Briefly, given a Riemannian manifold
-$\mathcal X$, the (static) Schrodinger bridge problem is to find the joint
+$\mathcal X$, the (static) Schrödinger bridge problem is to find the joint
 distribution $Q$ on $\mathcal X \times \mathcal X$ which
 \begin{enumerate}
     \item Satisfies the marginal constraints $X_0 \sim \mu$ and $X_1 \sim \nu$
@@ -290,8 +290,8 @@ is always a measure, but it may not be a probability measure. Once
 a solution is found, the distribution on paths is just a mixture of
 Brownian bridges with weights given by the transport plan.
 
-\section{Schrodinger Bridge to Diffusion Models}
-Before discussing how to actually compute the Schrodinger bridge, we touch on
+\section{Schrödinger Bridge to Diffusion Models}
+Before discussing how to actually compute the Schrödinger bridge, we touch on
 why it might be useful for diffusion models. Traditional diffusion models
 essentially consist of the following conceptual sequence
 \begin{enumerate}
@@ -299,22 +299,22 @@ essentially consist of the following conceptual sequence
     distribution at the prior
     \item Run the forward process until it is close to stationary (i.e. the prior)
     \item Use samples from the forward process to \emph{learn} the backwards process.
-    This amounts to learning the score \cite{song2020generativemodelingestimatinggradients}
+    This amounts to learning the score
     \cite{ho2020denoisingdiffusionprobabilisticmodels}
+    \cite{song2020generativemodelingestimatinggradients}
 \end{enumerate}
 We might be slightly uncomfortable with the second step above, since it relies
 on us simply trusting that the diffusion process has been run long enough.
-Solving the Schrodinger bridge problem helps us address this discomfort.
+Solving the Schrödinger bridge problem helps us address this discomfort.
 Instead of fixing the forward process and letting it run long enough to reach
 stationarity, we can directly find the diffusion process that is closest to
 our \emph{reference Brownian motion} while also satisfying the marginal
-constraints. Note that this means we no longer need to specify a drift term
-in our forward process, the drift term is determined by the Schrodinger bridge
-problem to ensure that the prior is reached \emph{in finite time}. This is the
+constraints. This means that we can now force the forward dynamics
+to reach the prior \emph{in finite time}. This is the
 first key idea in \cite{debortoli2023diffusionschrodingerbridgeapplications}.
 
-\section{Solving the Schrodinger Bridge Problem}
-We now return to the problem of actually solving the Schrodinger bridge problem.
+\section{Solving the Schrödinger Bridge Problem}
+We now return to the problem of actually solving the Schrödinger bridge problem.
 We will focus again on a finite set as discussed in section
 \ref{sec:many_particles}. First we will introduce the classic
 Sinkhorn algorithm, before moving on to the implementation provided in 
@@ -331,10 +331,12 @@ as follows
         \item Repeat
     \end{enumerate}
 \end{enumerate}
-It is a remarkable fact shown in \cite{Sinkhorn1964} that this algoritihm
+It is a remarkable fact shown in \cite{Sinkhorn1964} that this algorithm
 converges to the minimum entropy solution which satisfies the marginal
-constraints! We will not provide a proof of convergence here, but we will
-provide some intuition. It may be helpful to think of this algorithm in terms of
+constraints! In fact it can be seen as a versin of coordinate ascent in the
+\emph{dual} problem. We will not provide a proof of convergence here.
+
+It may be helpful before moving forward to think of this algorithm in terms of
 conditional distributions. Let rows correspond to
 $X_0$ with target marginal $\mu$ and columns to $X_1$ with target marginal
 $\nu$. The very first time we rescale the rows corresponds to computing the joint
@@ -342,7 +344,9 @@ distribution specified by $\mu$ and the \emph{reference dynamics}. This joint
 distribution implies a \emph{backwards} conditional distribution $X_0|X_1$.
 Crucially, if we now reweight the columns, the \emph{backwards} conditional distribution
 is maintained and the $X_1$ marginal is adjusted. However, the forward
-conditional $X_1 | X_0$ and $X_0$ marginal will now be perturbed. The algorithm
+conditional $X_1 | X_0$ and $X_0$ marginal will now be perturbed. We can
+repeat the process, reweighting the $X_0$ marginal and following the new
+forward dynamics. The algorithm
 will repeat until both marginal constraints are satisfied.
 
 The Sinkhorn algorithm would be perfect if our distributions had finite support.
@@ -354,7 +358,7 @@ Another solution is to implicitly define the joint distribution by modelling
 the \emph{diffusion} process itself. This is the key algorithmic innovation
 introduced
 in \cite{debortoli2023diffusionschrodingerbridgeapplications}.
-At a high-level the algorithm is as followed
+At a high-level the algorithm is as follows
 \begin{enumerate}
     \item Initialize at the data distribution and use the reference distribution
     for our forward dynamics
@@ -373,10 +377,15 @@ over transport plans in the finite case. We now introduce a
 Markovian interacting particle system which admits this distribution as
 a stationary distribution. The algorithm is described in Algorithm~\ref{alg:bitflip-mh}.
 This algorithm is based on Metropolis-Hastings using a combination of
-bit-masked swap proposals and random pairings. Stationarity is maintained
-since each individual swap proposal is reversible (after MH correction). The
+bit-masked swap proposals and random pairings. It alternates between a
+\emph{y-swap phase} and an \emph{x-swap phase}: each phase sweeps through all
+$N$ bit indices proposing swaps of the respective coordinate, then runs a
+random-pairing shuffle of that same coordinate.  Because $\Delta E$ is symmetric
+in $x$ and $y$, both swap types share the same MH acceptance ratio.  Stationarity is maintained
+since each individual swap proposal is reversible (after MH correction), and
+each phase preserves the empirical marginal of the coordinate being swapped. The
 target is log concave \cite{léonard2013surveyschrodingerproblemconnections},
-therefore multiomdality is not an issue. An
+therefore multimodality is not an issue. An
 interactive version of the simulation can be found on
 \href{https://zach-lau.github.io/STAT547E-Project/code/particle_sim.html}{Github}
 \footnote{\url{https://zach-lau.github.io/STAT547E-Project/code/particle_sim.html}}.
@@ -385,38 +394,45 @@ interactive version of the simulation can be found on
 \caption{Bit-Flip MH Kernel for Regularised OT}
 \label{alg:bitflip-mh}
 \begin{algorithmic}[1]
-\Require $M = 2^N$ particles with fixed positions $x_1,\ldots,x_M \sim r$,
-         initial $y$-values $y_1,\ldots,y_M$ with empirical marginal $c$,
+\Require $M = 2^N$ particles with positions $x_1,\ldots,x_M \sim r$ and
+         $y$-values $y_1,\ldots,y_M$ with empirical marginal $c$,
          regularisation $\varepsilon > 0$
-\State $\mathit{bit} \gets 0$
+\State $\mathit{bit} \gets 0$,\quad $\mathit{phase} \gets \text{y-swap}$
 \Loop
     \State $\mathit{mask} \gets 2^{\mathit{bit}}$
     \For{$i = 0, 1, \ldots, M-1$ such that $(i \gg \mathit{bit}) \mathbin{\&} 1 = 0$}
         \State $j \gets i \oplus \mathit{mask}$
         \State $\Delta E \gets (x_i - y_j)^2 + (x_j - y_i)^2 - (x_i - y_i)^2 - (x_j - y_j)^2$
         \If{$\Delta E \leq 0$ \textbf{or} $U \sim \mathrm{Uniform}(0,1) < e^{-\Delta E / \varepsilon}$}
-            \State Swap $y_i \leftrightarrow y_j$
+            \If{$\mathit{phase} = \text{y-swap}$} Swap $y_i \leftrightarrow y_j$
+            \Else\ Swap $x_i \leftrightarrow x_j$
+            \EndIf
         \EndIf
     \EndFor
     \State $\mathit{bit} \gets (\mathit{bit} + 1) \bmod N$
     \If{$\mathit{bit} = 0$} \Comment{End of full $N$-bit cycle}
         \State Draw a uniformly random permutation $\sigma$ of $\{1,\ldots,M\}$
         \For{$k = 1, 3, 5, \ldots, M-1$} \Comment{Consecutive pairs}
-            \State Propose swap between particles $\sigma(k)$ and $\sigma(k+1)$ via MH
+            \If{$\mathit{phase} = \text{y-swap}$}
+                \State Propose $y$-swap between $\sigma(k)$ and $\sigma(k+1)$ via MH
+            \Else
+                \State Propose $x$-swap between $\sigma(k)$ and $\sigma(k+1)$ via MH
+            \EndIf
         \EndFor
+        \State Toggle $\mathit{phase}$: y-swap $\leftrightarrow$ x-swap
     \EndIf
 \EndLoop
 \end{algorithmic}
 \end{algorithm}
 
 \section{Conclusion}
-In this project we have built up a deeper understanding of the Schrodinger
+In this project we have built up a deeper understanding of the Schrödinger
 bridge problem based on a finite particle approach. We worked up from Brownian
 bridges, to interacting particle systems to demonstrate how the KL-divergence
 naturally arises as a cost-function when considering diffusion problems with
 constrained marginals. Furthermore, we introduced a simple MCMC algorithm to
 simulate from the posteriors defined by applying the marginal constraints to
-the reference dynamcis in finite particle systems.
+the reference dynamics in finite particle systems.
 
 \bibliographystyle{plain}
 \bibliography{refs}
