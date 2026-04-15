@@ -423,31 +423,29 @@ const MARG_NAMES = {
   gauss_right:'Gauss(R)', bimodal_sym:'Bi-sym', uniform:'Uniform'
 };
 
-function discreteProb(type, pts) {
-  const f = MARG_FN[type], n = pts.length;
-  const p = new Float64Array(n);
-  let s = 0;
-  for (let i = 0; i < n; i++) { p[i] = f(pts[i]); s += p[i]; }
-  for (let i = 0; i < n; i++) p[i] /= s;
-  return p;
-}
+//Inverse-CDF sampling: places M particles at quantile positions CDF^{-1}((j+0.5)/M).
+// Every display bin gets exactly M*bin_prob ± 1 particles — no staircase artifact.
+function inverseCDFSample(type, M) {
+  const f = MARG_FN[type];
+  const D = Math.max(4096, M * 4);
 
-// Balanced allocation: assigns exactly floor/ceil(M * prob[i]) particles to each bin
-// so the empirical marginal equals the target PMF up to integer rounding.
-function exactSample(prob, gridPts, M) {
-  const G = prob.length;
-  const exact = new Float64Array(G);
-  for (let i = 0; i < G; i++) exact[i] = M * prob[i];
-  const counts = new Int32Array(G);
-  let total = 0;
-  for (let i = 0; i < G; i++) { counts[i] = Math.floor(exact[i]); total += counts[i]; }
-  // Give remaining slots to bins with largest fractional parts
-  const order = Array.from({length: G}, (_, i) => i)
-    .sort((a, b) => (exact[b] - counts[b]) - (exact[a] - counts[a]));
-  for (let k = 0; k < M - total; k++) counts[order[k]]++;
+  // Build normalised CDF on a fine grid of D cells
+  const cdf = new Float64Array(D + 1);
+  cdf[0] = 0;
+  for (let i = 0; i < D; i++) cdf[i + 1] = cdf[i] + f((i + 0.5) / D);
+  const total = cdf[D];
+  for (let i = 1; i <= D; i++) cdf[i] /= total;
+
+  // Invert: particle j sits at CDF^{-1}((j+0.5)/M) via linear interp
   const vals = new Float64Array(M);
-  let idx = 0;
-  for (let i = 0; i < G; i++) for (let k = 0; k < counts[i]; k++) vals[idx++] = gridPts[i];
+  let lo = 0;
+  for (let j = 0; j < M; j++) {
+    const q = (j + 0.5) / M;
+    while (lo < D - 1 && cdf[lo + 1] <= q) lo++;
+    const span = cdf[lo + 1] - cdf[lo];
+    const t = span > 0 ? (q - cdf[lo]) / span : 0.5;
+    vals[j] = Math.min(1, Math.max(0, (lo + t) / D));
+  }
   return vals;
 }
 
@@ -463,8 +461,6 @@ const sim = {
   N:5, eps:0.05, rType:'bimodal', cType:'skewed',
   M:32,
   xV:null, yV:null,      // Float64Array[M]: particle positions
-  rProb:null, cProb:null,
-  gridPts:null,
   iter:0, bit:0,
   running:false, speed:4,
   viewMode: 'kde',       // 'kde' | 'particles'
@@ -475,17 +471,10 @@ function initSim() {
   const M = 1 << N;
   sim.M = M; sim.iter = 0; sim.bit = 0; sim.phase = 0;
 
-  const pts = new Float64Array(M);
-  for (let i=0;i<M;i++) pts[i] = (2*i+1)/(2*M);
-  sim.gridPts = pts;
-
-  sim.rProb = discreteProb(rType, pts);
-  sim.cProb = discreteProb(cType, pts);
-
-  // x: exactly M particles allocated to bins ∝ r (fixed throughout)
-  sim.xV = exactSample(sim.rProb, pts, M);
-  // y: exactly M particles allocated to bins ∝ c, randomly permuted
-  sim.yV = exactSample(sim.cProb, pts, M);
+  // x: M particles at quantile positions of r (fixed throughout)
+  sim.xV = inverseCDFSample(rType, M);
+  // y: M particles at quantile positions of c, randomly permuted
+  sim.yV = inverseCDFSample(cType, M);
   shuffle(sim.yV);
 }
 
@@ -623,7 +612,7 @@ const BLUE  = '#4fc3f7';
 const ORANGE= '#ff7043';
 
 function drawMain(canvas) {
-  const {M, xV, yV, rProb, cProb, gridPts, iter, bit, N, rType, cType} = sim;
+  const {M, xV, yV, iter, bit, N, rType, cType} = sim;
   const W = canvas.width, H = canvas.height;
   const ctx = canvas.getContext('2d');
 

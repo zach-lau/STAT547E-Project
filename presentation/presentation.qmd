@@ -122,7 +122,7 @@ $$p(\mathbf{i}, \mathbf{j}) \propto \prod_{(i,j)} \exp\!\left(-\tfrac{1}{2}(a_i 
 
 $$\log p(\mathbf{i}, \mathbf{j}) = -N \cdot H(q, r)$$
 
-This is a **power posterior** — for large $N$ it concentrates near the **minimiser of cross-entropy**
+For large $N$ it concentrates near the **minimiser of cross-entropy**
 
 ---
 
@@ -315,7 +315,7 @@ We built up the Schrödinger Bridge problem from first principles:
 | Brownian Bridge | Conditional diffusion, $\mathcal{N}(ta+(1-t)b,\; t(1-t))$ |
 | Multiple particles | Mixture of Gaussians |
 | Unknown pairings | Uniform prior + Brownian likelihood → cross-entropy |
-| Many particles | Stirling → KL divergence, power posterior |
+| Many particles | Stirling → KL divergence, entropy regularisation |
 | SB problem | Minimise $\mathrm{KL}(Q \| R)$ subject to marginals |
 | Sinkhorn | Iterated marginal rescaling = coordinate ascent in dual |
 | DSBM | Neural SDE parameterisation of Sinkhorn |

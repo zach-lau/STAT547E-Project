@@ -234,7 +234,7 @@
 <p><span class="math display">\[p(\mathbf{i}, \mathbf{j}) \propto \prod_{(i,j)} \exp\!\left(-\tfrac{1}{2}(a_i - b_j)^2\right)\]</span></p>
 <p><strong>Connection to cross-entropy</strong>: let <span class="math inline">\(q\)</span> be the empirical transport measure and <span class="math inline">\(r(i,j) \propto \exp(-\tfrac{1}{2}(a_i-b_j)^2)\)</span> be the reference. Then</p>
 <p><span class="math display">\[\log p(\mathbf{i}, \mathbf{j}) = -N \cdot H(q, r)\]</span></p>
-<p>This is a <strong>power posterior</strong> — for large <span class="math inline">\(N\)</span> it concentrates near the <strong>minimiser of cross-entropy</strong></p>
+<p>For large <span class="math inline">\(N\)</span> it concentrates near the <strong>minimiser of cross-entropy</strong></p>
 </section>
 <section id="many-particles-setting" class="slide level2 smaller">
 <h2>Many Particles — Setting</h2>
@@ -422,7 +422,7 @@
 </tr>
 <tr class="even">
 <td>Many particles</td>
-<td>Stirling → KL divergence, power posterior</td>
+<td>Stirling → KL divergence, entropy regularisation</td>
 </tr>
 <tr class="odd">
 <td>SB problem</td>
