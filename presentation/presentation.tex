@@ -2,6 +2,7 @@
 \usetheme{Madrid}
 
 \usepackage{amsmath, amssymb}
+\graphicspath{{../graphics}}
 
 \newcommand{\Norm}{\mathcal{N}}
 \newcommand{\KL}{\mathrm{KL}}
@@ -62,9 +63,9 @@
     \item Uniform prior on pairings; Brownian likelihood $\mathcal{L} \propto \exp\!\bigl(-\tfrac{1}{2}{(x_1 - x_0)}^2\bigr)$
     \item Posterior over pairing $(\mathbf{i}, \mathbf{j})$:
     \[
-      \mathbf{p}(\mathbf{i},\mathbf{j}) \propto \prod_{(i,j)} \exp\!\Bigl(-\tfrac{1}{2}{(a_i - b_j)}^2\Bigr)
+      p(\mathbf{i},\mathbf{j}) \propto \prod_{(i,j)} \exp\!\Bigl(-\tfrac{1}{2}{(a_i - b_j)}^2\Bigr)
     \]
-    \item Log-posterior $= -N H(p, q)$, a \emph{power posterior} — concentrates on the cross-entropy minimizer as $N \to \infty$
+    \item Log-posterior $= -N H(q, r)$, a \emph{power posterior} — concentrates on the cross-entropy minimizer as $N \to \infty$
   \end{itemize}
 \end{frame}
 
@@ -74,7 +75,7 @@
     \item Combinatorial prior (microstate vs.\ macrostate) + Brownian likelihood
     \item Stirling's approximation + normalization yields, for large $M$:
     \[
-      \log p(P) \approx NM\cdot \KL(p \| q) + \text{const}
+      \log p(Q) \approx NM\cdot \KL(q \| r) + \text{const}
     \]
     \item \textbf{Key insight:} as $M \to \infty$, posterior collapses to the minimizer of $\KL(p \| q)$ subject to marginal constraints
     \item This is the \emph{principle of maximum entropy} — and the Schrödinger Bridge

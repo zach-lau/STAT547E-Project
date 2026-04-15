@@ -7,6 +7,8 @@
 \usepackage{csvsimple}
 \usepackage{placeins}
 % \usepackage{hyperref}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
 
 
 \graphicspath{{./graphics}}
@@ -191,7 +193,7 @@ negative cross-entropy between $q$ and $r$. That is
 \end{align}
 Already, we can see some interesting phenomena. Firstly, we notice the
 similarity beween the sum of squares losses and the cost function in the
-Monge-Kantovorich problem. We will return to this later. Furthermore, notice
+Monge-Kantorovich problem. We will return to this later. Furthermore, notice
 that multiplying the log-likelihood by $N$ corresponds to a \emph{power
 posterior}. Therefore for large $N$ we might expect the posterior to concentrate
 near the minimizer of the cross-entropy.
@@ -266,8 +268,8 @@ statistical mechanics we might interpret negative $KL$ as entropy. In other
 words, we have discovered the principle of maximum entropy. We have also
 discovered the concept of a Schrodinger Bridge. Another interesting point,
 we make is to recall that the cross entropy corresponds to the cost function
-from the Monge-Kantovorich problem. Thus this optimizaiton corresponds
-to an \emph{entropy-regularized} version of the Monge-Kantovorich problem.
+from the Monge-Kantorovich problem. Thus this optimizaiton corresponds
+to an \emph{entropy-regularized} version of the Monge-Kantorovich problem.
 Changing variance of the Brownian motion changes the strength of
 regularization.
 
@@ -367,13 +369,54 @@ conditional distributions are given by \emph{diffusion dynamics}.
 
 \section{Simulation by MCMC}
 In section \ref{sec:many_particles} we introduced a probability distribution
-over transport plans in the finite case. In this section we introduce a
+over transport plans in the finite case. We now introduce a
 Markovian interacting particle system which admits this distribution as
-a stationary distribution. The algorithm is described in 
+a stationary distribution. The algorithm is described in Algorithm~\ref{alg:bitflip-mh}.
+This algorithm is based on Metropolis-Hastings using a combination of
+bit-masked swap proposals and random pairings. Stationarity is maintained
+since each individual swap proposal is reversible (after MH correction). The
+target is log concave \cite{léonard2013surveyschrodingerproblemconnections},
+therefore multiomdality is not an issue. An
+interactive version of the simulation can be found on
+\href{https://zach-lau.github.io/STAT547E-Project/code/particle_sim.html}{Github}
+\footnote{\url{https://zach-lau.github.io/STAT547E-Project/code/particle_sim.html}}.
 
-
+\begin{algorithm}[h]
+\caption{Bit-Flip MH Kernel for Regularised OT}
+\label{alg:bitflip-mh}
+\begin{algorithmic}[1]
+\Require $M = 2^N$ particles with fixed positions $x_1,\ldots,x_M \sim r$,
+         initial $y$-values $y_1,\ldots,y_M$ with empirical marginal $c$,
+         regularisation $\varepsilon > 0$
+\State $\mathit{bit} \gets 0$
+\Loop
+    \State $\mathit{mask} \gets 2^{\mathit{bit}}$
+    \For{$i = 0, 1, \ldots, M-1$ such that $(i \gg \mathit{bit}) \mathbin{\&} 1 = 0$}
+        \State $j \gets i \oplus \mathit{mask}$
+        \State $\Delta E \gets (x_i - y_j)^2 + (x_j - y_i)^2 - (x_i - y_i)^2 - (x_j - y_j)^2$
+        \If{$\Delta E \leq 0$ \textbf{or} $U \sim \mathrm{Uniform}(0,1) < e^{-\Delta E / \varepsilon}$}
+            \State Swap $y_i \leftrightarrow y_j$
+        \EndIf
+    \EndFor
+    \State $\mathit{bit} \gets (\mathit{bit} + 1) \bmod N$
+    \If{$\mathit{bit} = 0$} \Comment{End of full $N$-bit cycle}
+        \State Draw a uniformly random permutation $\sigma$ of $\{1,\ldots,M\}$
+        \For{$k = 1, 3, 5, \ldots, M-1$} \Comment{Consecutive pairs}
+            \State Propose swap between particles $\sigma(k)$ and $\sigma(k+1)$ via MH
+        \EndFor
+    \EndIf
+\EndLoop
+\end{algorithmic}
+\end{algorithm}
 
 \section{Conclusion}
+In this project we have built up a deeper understanding of the Schrodinger
+bridge problem based on a finite particle approach. We worked up from Brownian
+bridges, to interacting particle systems to demonstrate how the KL-divergence
+naturally arises as a cost-function when considering diffusion problems with
+constrained marginals. Furthermore, we introduced a simple MCMC algorithm to
+simulate from the posteriors defined by applying the marginal constraints to
+the reference dynamcis in finite particle systems.
 
 \bibliographystyle{plain}
 \bibliography{refs}
