@@ -3,7 +3,7 @@ title: "Diffusion Schrödinger Bridge"
 subtitle: "STAT 547E — Zachary Lau"
 format:
   revealjs:
-    theme: default
+    theme: dracula
     slide-number: true
     toc: false
     incremental: false

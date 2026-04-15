@@ -1,7 +1,7 @@
 """
 Linear Annealing vs Schrödinger Bridge: density interpolation paths.
 
-(a) Unimodal N(0,1)  →  Bimodal mixture of Gaussians
+(a) Gaussian N(-2.5, 1)  →  Translated Gaussian N(+2.5, 1)
 (b) Broad prior      →  Posterior with asymmetric likelihood
 
 For the Schrödinger bridge the coupling P_ε is obtained via Sinkhorn
@@ -33,14 +33,9 @@ def normalize(p):
 
 # ── distributions ─────────────────────────────────────────────────────────────
 
-# (a) unimodal N(0,1)
-p0_a = normalize(np.exp(-0.5 * x**2))
-
-# (a) bimodal mixture – modes at ±2.5, std 0.7
-p1_a = normalize(
-    0.5 * np.exp(-0.5 * ((x - 2.5) / 0.7)**2) +
-    0.5 * np.exp(-0.5 * ((x + 2.5) / 0.7)**2)
-)
+# (a) translated Gaussian: N(-2.5, 0.5²) → N(+2.5, 0.5²)
+p0_a = normalize(np.exp(-0.5 * ((x + 2.5) / 0.5)**2))
+p1_a = normalize(np.exp(-0.5 * ((x - 2.5) / 0.5)**2))
 
 # (b) broad symmetric prior
 prior = normalize(np.exp(-0.5 * (x / 2.5)**2))
@@ -66,7 +61,7 @@ def geometric_path(p0, p1, t):
 
 # ── Schrödinger bridge ────────────────────────────────────────────────────────
 
-EPS = 1.2   # diffusion parameter for reference Brownian motion
+EPS = 2.5   # diffusion parameter for reference Brownian motion
 
 def sinkhorn_plan(p0, p1, eps=EPS, n_iter=3000):
     K      = np.exp(-(x[:, None] - x[None, :]) ** 2 / eps)
@@ -162,7 +157,7 @@ def plot_panel(ax, p0, p1, P, mode, title, row_label=""):
 
 # row (a)
 plot_panel(axes[0][0], p0_a, p1_a, P_a, "linear",
-           "Linear Annealing", row_label="(a) Unimodal → Bimodal")
+           "Linear Annealing", row_label="(a) N(-2.5,1) → N(+2.5,1)")
 plot_panel(axes[0][1], p0_a, p1_a, P_a, "sb",
            "Schrödinger Bridge")
 
