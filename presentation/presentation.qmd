@@ -154,7 +154,7 @@ $$= -NM \cdot \mathrm{KL}(q \,\|\, r) + \text{const}$$
 
 As $M \to \infty$:
 
-$$Q^* = \argmin_{Q \text{ satisfies marginals}} \mathrm{KL}(q \,\|\, r)$$
+$$Q^* = \arg \min \mathrm{KL}(q \,\|\, r)$$
 
 We have derived the **principle of maximum entropy** from first principles, and discovered the **Schrödinger Bridge**.
 
