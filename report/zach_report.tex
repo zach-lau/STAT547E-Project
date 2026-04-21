@@ -7,6 +7,7 @@
 \usepackage{csvsimple}
 \usepackage{placeins}
 % \usepackage{hyperref}
+\usepackage{subcaption}
 \usepackage{algorithm}
 \usepackage{algpseudocode}
 
@@ -69,6 +70,8 @@ received renewed attention in statistics thanks to its application to diffusion
 models. This report provides an accesible introduction to the Schrödinger bridge
 problem for statisticians, discusses its connection to diffusion models, and
 provides a simple MCMC algorithm to sample from a finite particle approximation.
+Our particle approximation method implicitly regularizes for entropy via
+the aggregation from 
 \end{abstract}
 
 \section{Introduction}
@@ -90,7 +93,7 @@ arise when we have multiple pairs of particles. By allowing the particles'
 pairings to be chosen probabilistically according to the diffusion dynamics, we
 recover a finite version of the Schrödinger bridge problem. In the limit of
 infinite particles, this approaches exactly the standard Schrödinger bridge
-problem through one-dimensional visualizations.
+problem.
 
 In addition to introducing the problem formulation, we discuss the classical
 Sinkhorn solution, as well as the novel generative modelling centered
@@ -159,6 +162,7 @@ density is given by a \emph{mixture of normals} defined by the respective
 Brownian Bridges.
 
 \section{Unknown Pairings - A Bayesian Perspective}
+\label{sec:unknown}
 Next we will generalize further. Suppose that we observe the locations of the
 $N$ particles at the beginning and the end, but we don't know which particle
 correponds to which! How can we pair the particles? We will take an approach
@@ -369,26 +373,101 @@ At a high-level the algorithm is as follows
     \item Repeat
 \end{enumerate}
 This is exactly a continuous analog of the Sinkhorn algorithm, but where
-conditional distributions are given by \emph{diffusion dynamics}.
+conditional distributions are given by \emph{diffusion dynamics}. Lastly it
+is important to note that while we have been using the standard Brownian
+motion as our reference distribution, this is only one possible choice. In fact,
+each form of the forward SDE corresponds to a \emph{different reference
+path distribution} with a different energy function. For example, for the
+Variance Preserving SDE \cite{song2021scorebasedgenerativemodelingstochastic}
+the corresponding energy function for the static Schrödinger bridge problem
+would be $E(i, j) = -\frac 1 2 \frac{(\alpha a_i - b_j)^2}{1-\alpha^2}$ where
+$\alpha = \exp\left(-\frac 1 2 \int_0^t \beta(s) \d s\right)$. 
 
 \section{Simulation by MCMC}
-In section \ref{sec:many_particles} we introduced a probability distribution
+In section \ref{sec:unknown} we introduced a probability distribution
 over transport plans in the finite case. We now introduce a
 Markovian interacting particle system which admits this distribution as
-a stationary distribution. The algorithm is described in Algorithm~\ref{alg:bitflip-mh}.
+a stationary distribution. The introduced distribution can be seen as the
+Gibb's distribution, where energy is defined by the reference Brownian motion.
+In our case this proportional to the L2 optimal transport cost. We also
+introduce a constant $\epsilon$ which controls the amount of noise in the
+Brownian motion, and also hence the trade-off between entropy regularization
+and the optimal transport cost functio (see figure \ref{fig:epsilon_effect}).
+\begin{align}
+    p(\mathbf i, \mathbf j) &\propto \exp(-E(\mathbf i, \mathbf j)) \\
+    E(\mathbf i, \mathbf j) &= \sum_{(i,j)} -\frac 1 2 \frac{(a_i - b_j)^2}{\epsilon}
+\end{align}
+The algorithm is described in Algorithm~\ref{alg:bitflip-mh}.
 This algorithm is based on Metropolis-Hastings using a combination of
 bit-masked swap proposals and random pairings. It alternates between a
-\emph{y-swap phase} and an \emph{x-swap phase}: each phase sweeps through all
-$N$ bit indices proposing swaps of the respective coordinate, then runs a
-random-pairing shuffle of that same coordinate.  Because $\Delta E$ is symmetric
-in $x$ and $y$, both swap types share the same MH acceptance ratio.  Stationarity is maintained
-since each individual swap proposal is reversible (after MH correction), and
-each phase preserves the empirical marginal of the coordinate being swapped. The
-target is log concave \cite{léonard2013surveyschrodingerproblemconnections},
-therefore multimodality is not an issue. An
-interactive version of the simulation can be found on
+\emph{y-swap phase} (swap ending locations) and an \emph{x-swap phase}
+(swap starting locations). Each phase sweeps through all $N$ bit indices
+proposing swaps of the respective coordinate, then shuffles the indices. This
+ensures both global communication between particles, as well as breaking
+periodicity. Since energy is summative over all particles, the change in energy
+for a proposal can be calculated locally (that is, given only the $a$ and $b$
+values of the two interacting particles). The overall kernel can be seen as
+a combination of such local kernels, plus an energy preserving shuffle.
+
+This algorithm approximates the marginal distributions by first independently
+sampling the starting and ending points from their desired marginals. Once the
+marginal approximations are set, the only moves that are proposed are 
+\emph{swap} moves, thus the marginal constraints of the Schrödinger bridge
+problem remain approximately satisfied.  The target is log concave
+\cite{léonard2013surveyschrodingerproblemconnections}, therefore multimodality
+is not likely to be an issue. An interactive version of the simulation can be
+found on
 \href{https://zach-lau.github.io/STAT547E-Project/code/particle_sim.html}{Github}
 \footnote{\url{https://zach-lau.github.io/STAT547E-Project/code/particle_sim.html}}.
+In this 1-dimensional example, $x$ and $y$ locations are deterministically
+``sampled'' using the inverse CDF method. This simulation was used to generate
+the example in Figure \ref{fig:epsilon_effect} which shows how the Schrödinger
+brige problem interpolates between the independent coupling and the L2
+optimal transport plan.
+
+In section \ref{sec:many_particles}, we noted that when such a particle system
+includes many particles at the same location, aggregating to macrostates
+naturally induces entropy regularization. The setup for this algorithm is
+slightly different, in that particles are sampled from the marginals, and thus
+do not necessarily at exactly the same location. However qualitiatively and
+intuitively sampling from the marginals induces a conceptual \emph{change of measure}
+(i.e. from the counting measure to our marginal distribution) which has
+the same effect. Future work could focus on formalizing this equivalence in
+the asymptotic limit. The key insight is that \emph{aggregating to macrostates
+induces entropy regularization}.
+
+While in low dimensions our particle simulation is more of a toy, it may have
+real applications as dimensionality scales up. The Sinkhorn algorithm relies
+on a discretization of the grid. Naively, such a discretization would
+scale \emph{exponentially} in dimension, making it infeasible beyond very
+moderate dimensions. Our algorithm on the other hand only requires a sample
+from the marginals, which may be significantly more information dense.
+Furthermore, the sampling problem is extremely well-behaved; we have a
+log-concave target and uniform ergodicity (since we are working on finite state
+space).
+
+\begin{figure}[ht]
+    \centering
+    \begin{subfigure}[t]{0.32\textwidth}
+        \includegraphics[width=\textwidth]{../graphics/OT.png}
+        \caption{Low temperature ($\varepsilon \to 0$): recovers the deterministic optimal transport map.}
+        \label{fig:ot}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[t]{0.32\textwidth}
+        \includegraphics[width=\textwidth]{../graphics/sb.png}
+        \caption{Moderate temperature: the Schr\"{o}dinger bridge, a stochastic transport plan.}
+        \label{fig:sb}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[t]{0.32\textwidth}
+        \includegraphics[width=\textwidth]{../graphics/independent.png}
+        \caption{High temperature ($\varepsilon \to \infty$): maximum-entropy plan (independent coupling).}
+        \label{fig:independent}
+    \end{subfigure}
+    \caption{Effect of the entropy regularisation parameter $\varepsilon$ on the transport plan. The heatmap shows the joint distribution of $(x, y)$ samples; marginals are shown on the axes.}
+    \label{fig:epsilon_effect}
+\end{figure}
 
 \begin{algorithm}[h]
 \caption{Bit-Flip MH Kernel for Regularised OT}
@@ -411,15 +490,7 @@ interactive version of the simulation can be found on
     \EndFor
     \State $\mathit{bit} \gets (\mathit{bit} + 1) \bmod N$
     \If{$\mathit{bit} = 0$} \Comment{End of full $N$-bit cycle}
-        \State Draw a uniformly random permutation $\sigma$ of $\{1,\ldots,M\}$
-        \For{$k = 1, 3, 5, \ldots, M-1$} \Comment{Consecutive pairs}
-            \If{$\mathit{phase} = \text{y-swap}$}
-                \State Propose $y$-swap between $\sigma(k)$ and $\sigma(k+1)$ via MH
-            \Else
-                \State Propose $x$-swap between $\sigma(k)$ and $\sigma(k+1)$ via MH
-            \EndIf
-        \EndFor
-        \State Toggle $\mathit{phase}$: y-swap $\leftrightarrow$ x-swap
+        \State Shuffle particle indices
     \EndIf
 \EndLoop
 \end{algorithmic}

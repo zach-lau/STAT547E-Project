@@ -343,31 +343,28 @@ canvas { display: block; border-radius: 6px; }
 
     <h3>The Bit-Flip MH Kernel</h3>
     <p>
-      We use a Markov chain that preserves marginal invariance exactly. The algorithm alternates
-      between two phases each consisting of a full bit-sweep followed by a random-pairing shuffle:
+      We use a Markov chain that preserves marginal invariance exactly. Each iteration follows
+      four steps in order:
     </p>
     <ol style="margin: 6px 0 6px 18px; line-height: 1.8;">
-      <li><strong>y-swap phase:</strong> cycle through bit indices <span class="math">k = 0,…,N−1</span>;
-        for each <span class="math">k</span> propose exchanging <span class="math">yᵢ ↔ yⱼ</span>
-        for all pairs <span class="math">(i, i ⊕ 2ᵏ)</span>, then run a random-pairing y-shuffle.</li>
-      <li><strong>x-swap phase:</strong> same bit-sweep structure, but propose exchanging
-        <span class="math">xᵢ ↔ xⱼ</span>, then run a random-pairing x-shuffle.</li>
+      <li><strong>x-swap bit-sweep:</strong> cycle through bit indices <span class="math">k = 0,…,N−1</span>;
+        for each <span class="math">k</span> propose exchanging <span class="math">xᵢ ↔ xⱼ</span>
+        for all pairs <span class="math">(i, i ⊕ 2ᵏ)</span>.</li>
+      <li><strong>shuffle:</strong> uniformly randomly permute all particles (x,y pairs together).</li>
+      <li><strong>y-swap bit-sweep:</strong> same bit-sweep structure, but propose exchanging
+        <span class="math">yᵢ ↔ yⱼ</span>.</li>
+      <li><strong>shuffle:</strong> uniformly randomly permute all particles (x,y pairs together).</li>
     </ol>
     <p>
-      Both swap types use the same Metropolis–Hastings acceptance probability:
+      The MH swap steps use acceptance probability:
     </p>
     <p style="text-align:center; color:#e0e0e0; font-family:Georgia,serif; font-style:italic;">
       α = min(1, exp(−ΔE/ε))
     </p>
     <p>
       where <span class="math">ΔE = (xᵢ−yⱼ)² + (xⱼ−yᵢ)² − (xᵢ−yᵢ)² − (xⱼ−yⱼ)²</span>
-      is the change in squared-distance cost (symmetric in <span class="math">x</span> and
-      <span class="math">y</span>). Each phase only moves one set of values, so both empirical
-      marginals are <em>exactly preserved</em> at every step.
-    </p>
-    <p>
-      The random-pairing shuffle after each bit-sweep ensures ergodicity by preventing the chain
-      from cycling without mixing.
+      is the change in squared-distance cost. Each swap phase only moves one set of values, so both
+      empirical marginals are <em>exactly preserved</em> at every step. The shuffles ensure ergodicity by breaking the deterministic pairing structure of the bit-sweeps.
     </p>
 
     <h3>Controls</h3>
@@ -501,46 +498,33 @@ function doBitStep() {
   const mask = 1 << bit;
   for (let i = 0; i < M; i++) {
     if ((i >> bit) & 1) continue;
-    if (phase === 0) trySwap(i, i ^ mask);
-    else             trySwapX(i, i ^ mask);
+    if (phase === 0) trySwapX(i, i ^ mask);
+    else             trySwap(i, i ^ mask);
   }
   sim.bit = (bit + 1) % N;
   if (sim.bit === 0) {
-    // End of a full N-bit cycle: run one random-pairing kernel pass, then switch phase
     if (phase === 0) {
-      doRandomStep();    // shuffle y-values
+      doRandomStepX();   // shuffle x-values
       sim.phase = 1;
     } else {
-      doRandomStepX();   // shuffle x-values
+      doRandomStep();    // shuffle y-values
       sim.phase = 0;
       sim.iter++;
     }
   }
 }
 
-// Random pairing kernel: shuffle indices, pair consecutive, propose y-swaps
-function doRandomStep() {
+function shuffleParticles() {
   const {M, xV, yV} = sim;
-  const perm = new Int32Array(M);
-  for (let i = 0; i < M; i++) perm[i] = i;
   for (let i = M-1; i > 0; i--) {
     const j = Math.random()*(i+1)|0;
-    const t = perm[i]; perm[i] = perm[j]; perm[j] = t;
+    const tx = xV[i]; xV[i] = xV[j]; xV[j] = tx;
+    const ty = yV[i]; yV[i] = yV[j]; yV[j] = ty;
   }
-  for (let k = 0; k < M-1; k += 2) trySwap(perm[k], perm[k+1]);
 }
 
-// Random pairing kernel: shuffle indices, pair consecutive, propose x-swaps
-function doRandomStepX() {
-  const {M, xV, yV} = sim;
-  const perm = new Int32Array(M);
-  for (let i = 0; i < M; i++) perm[i] = i;
-  for (let i = M-1; i > 0; i--) {
-    const j = Math.random()*(i+1)|0;
-    const t = perm[i]; perm[i] = perm[j]; perm[j] = t;
-  }
-  for (let k = 0; k < M-1; k += 2) trySwapX(perm[k], perm[k+1]);
-}
+function doRandomStep()  { shuffleParticles(); }
+function doRandomStepX() { shuffleParticles(); }
 
 // ── Density helpers ───────────────────────────────────────────────────────────
 // 2-D KDE on G×G grid.
