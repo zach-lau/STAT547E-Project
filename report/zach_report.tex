@@ -392,7 +392,7 @@ Gibb's distribution, where energy is defined by the reference Brownian motion.
 In our case this proportional to the L2 optimal transport cost. We also
 introduce a constant $\epsilon$ which controls the amount of noise in the
 Brownian motion, and also hence the trade-off between entropy regularization
-and the optimal transport cost functio (see figure \ref{fig:epsilon_effect}).
+and the optimal transport cost function (see figure \ref{fig:epsilon_effect}).
 \begin{align}
     p(\mathbf i, \mathbf j) &\propto \exp(-E(\mathbf i, \mathbf j)) \\
     E(\mathbf i, \mathbf j) &= \sum_{(i,j)} -\frac 1 2 \frac{(a_i - b_j)^2}{\epsilon}
@@ -402,11 +402,11 @@ This algorithm is based on Metropolis-Hastings using a combination of
 bit-masked swap proposals and random pairings. It alternates between a
 \emph{y-swap phase} (swap ending locations) and an \emph{x-swap phase}
 (swap starting locations). Each phase sweeps through all $N$ bit indices
-proposing swaps of the respective coordinate, then shuffles the indices. This
-ensures both global communication between particles, as well as breaking
+proposing swaps of the respective coordinate, then shuffles the indices. The bit
+masked swap proposal ensure global communication, while the shuffles break
 periodicity. Since energy is summative over all particles, the change in energy
 for a proposal can be calculated locally (that is, given only the $a$ and $b$
-values of the two interacting particles). The overall kernel can be seen as
+values of the two interacting particles). The overall kernel can then be seen as
 a combination of such local kernels, plus an energy preserving shuffle.
 
 This algorithm approximates the marginal distributions by first independently
@@ -427,9 +427,9 @@ optimal transport plan.
 
 In section \ref{sec:many_particles}, we noted that when such a particle system
 includes many particles at the same location, aggregating to macrostates
-naturally induces entropy regularization. The setup for this algorithm is
+naturally induces entropy regularization. The setup in this section is
 slightly different, in that particles are sampled from the marginals, and thus
-do not necessarily at exactly the same location. However qualitiatively and
+not necessarily at exactly the same location. However experimentally and
 intuitively sampling from the marginals induces a conceptual \emph{change of measure}
 (i.e. from the counting measure to our marginal distribution) which has
 the same effect. Future work could focus on formalizing this equivalence in
@@ -441,10 +441,54 @@ real applications as dimensionality scales up. The Sinkhorn algorithm relies
 on a discretization of the grid. Naively, such a discretization would
 scale \emph{exponentially} in dimension, making it infeasible beyond very
 moderate dimensions. Our algorithm on the other hand only requires a sample
-from the marginals, which may be significantly more information dense.
-Furthermore, the sampling problem is extremely well-behaved; we have a
-log-concave target and uniform ergodicity (since we are working on finite state
-space).
+from the marginals, which is more tractable in high dimensions.
+Furthermore, our MCMC problem is extremely well-behaved; we have a log-concave
+target and uniform ergodicity (since we are working on finite state space,
+although asypmtotic behaviour in the number of particles may warrant closer
+study). Moving beyond moderate dimension, it may be possible to integrate this
+work with diffusion models by using it to estimate the forward noising model.
+That is given a sample from our data distribution we perform the following steps
+\begin{itemize}
+    \item Sample an equal-sized distribution from our prior
+    \item Pair them using our MCMC algorithm
+    \item Noise by interpolating. For example for
+the VE SDE the interpolation is simply the standard Brownian bridge. 
+    \item Train a score matching network
+\end{itemize}
+Under such a scenario, the score
+matching network would only need to be trained \emph{once} as opposed to
+multiple times as in IMPF
+\cite{debortoli2023diffusionschrodingerbridgeapplications}.
+
+We experimentally verify the ability of our method to recover expectations with
+respect to the Static Schrödinger bridge problem in the analytically known case
+of Gaussians \cite{pmlr-v206-bunne23a}. We consider as our prior a mean-zero
+isotropic Gaussian, and as our data distribution a Gaussian with AR(1) structure
+for $\rho=0.9$ with mean $\vec e_1$ (that is shifted in the first dimension by
+one unit).  We consider dimension $d \in \{10, 30, 100\}$ and the number of
+particles $N \in \{100, 1000, 10000\}$. As test functions we use various
+functions which depend on the correlation structure induced by the transport
+map, since additive functions would simply reflect properties of the marginal
+samples and not the transport map itself. We check correlations between
+$x_0y_0$, $x_0y_1$, $x_1y_0$ and $x_1y_1$. We also check the first three moments
+of the dot product $\vec x \cdot \vec y$. 
+
+
+For each experiment,
+we intially run 1000 iterations to burn-in. After this point, we re-evaluate
+each test function after every 10 iterations until we have 1000 measurements
+(this can be seen as thinning). From these measurements we can estimate the
+distribution of the test function estimates, and compare it to ground truth.
+The mean and standard deviation are reported. Further more, comparing to ground
+truth MSE is presented. MSE is broken down into squared bias and variance based
+on sample estimates of the first and second moments. Bias is expected because
+we are using a finite particle approximation. Variance is expected because of
+the randomness in the particle approximations of the marginals, as well as the
+MCMC procedure itself. We also report estimates of the ESS to contextualize the
+mean estimates.  Ideally our Monte Carlo Standard Error of the mean (MCSE) will
+be small relative to the variance so that the bias variance decomposition is
+meaningful. For now, Claude is tasked with these experiments until they can be
+fully verified manually.
 
 \begin{figure}[ht]
     \centering
@@ -503,7 +547,11 @@ bridges, to interacting particle systems to demonstrate how the KL-divergence
 naturally arises as a cost-function when considering diffusion problems with
 constrained marginals. Furthermore, we introduced a simple MCMC algorithm to
 simulate from the posteriors defined by applying the marginal constraints to
-the reference dynamics in finite particle systems.
+the reference dynamics in finite particle systems. Future theoretical work
+may focus on the asymptotic behaviour of such an approximation as the number of
+particles increases. Experimental work will explore the feasible integration of
+the MCMC algorithm into diffusion modelling, including generalizing experimental
+results to different forward dynamics such as the VP-SDE.
 
 \bibliographystyle{plain}
 \bibliography{refs}
